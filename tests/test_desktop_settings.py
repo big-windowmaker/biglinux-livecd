@@ -119,6 +119,38 @@ def test_simple_theme_rejects_unknown_value_and_applies_xfce(
     assert any(command[0] == "xfconf-query" for command in host.commands)
 
 
+class FakeWindowMakerHost(FakeThemeHost):
+    def get_desktop_environment(self) -> str:
+        return "WindowMaker"
+
+
+def test_simple_theme_applies_window_maker_through_gsettings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    theme_list = tmp_path / "list-themes"
+    theme_list.write_text("fixture", encoding="utf-8")
+    host = FakeWindowMakerHost(theme_list)
+    assert apply_simple_theme(host, "light")
+    assert [
+        "gsettings",
+        "set",
+        "org.gnome.desktop.interface",
+        "color-scheme",
+        "'default'",
+    ] in host.commands
+    assert [
+        "gsettings",
+        "set",
+        "org.gnome.desktop.interface",
+        "icon-theme",
+        "'bigicons-papient'",
+    ] in host.commands
+    assert not any(command[0] == "xfconf-query" for command in host.commands)
+    assert not (tmp_path / ".config/dconf").exists()
+    assert host.gtk_settings == [(False, "bigicons-papient")]
+
+
 def test_user_config_writes_atomically_inside_home(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

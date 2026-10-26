@@ -928,6 +928,12 @@ elif [[ -e /usr/bin/startcinnamon-community ]]; then
 	rm -f "$HOME/Empty Bash" "$HOME/Empty Desktop File.desktop" "$HOME/Empty File"
 	xdg-user-dirs-update
 	exec startcinnamon-community
+
+elif [[ -e /usr/bin/startbigwm ]]; then
+	# Big WindowMaker: Clean up and start the Window Maker session
+	rm -f "$HOME/Empty Bash" "$HOME/Empty Desktop File.desktop" "$HOME/Empty File"
+	xdg-user-dirs-update
+	exec startbigwm
 fi
 
 # Fallback: restart display manager only if no session starter was found

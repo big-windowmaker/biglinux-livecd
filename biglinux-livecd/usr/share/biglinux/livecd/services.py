@@ -599,17 +599,24 @@ class SystemService:
             return "Cinnamon"
         elif os.path.exists("/usr/bin/startxfce-community"):
             return "XFCE"
+        elif os.path.exists("/usr/bin/startbigwm"):
+            return "WindowMaker"
         else:
             return "other"
 
     def is_simplified_environment(self) -> bool:
-        """Checks if we should use simplified UI (GNOME/XFCE/Cinnamon)."""
+        """Checks if we should use simplified UI (GNOME/XFCE/Cinnamon/WindowMaker)."""
         desktop_env = self.get_desktop_environment()
-        return desktop_env in ["GNOME", "XFCE", "Cinnamon"]
+        return desktop_env in ["GNOME", "XFCE", "Cinnamon", "WindowMaker"]
 
     def uses_simple_theme_selector(self) -> bool:
         """Checks if the theme step should be light/dark only."""
-        return self.get_desktop_environment() in ["GNOME", "XFCE", "Cinnamon"]
+        return self.get_desktop_environment() in [
+            "GNOME",
+            "XFCE",
+            "Cinnamon",
+            "WindowMaker",
+        ]
 
     def has_desktop_layout_step(self) -> bool:
         """Checks if the wizard should show the desktop layout step."""
