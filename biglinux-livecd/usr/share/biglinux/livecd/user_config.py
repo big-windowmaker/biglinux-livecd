@@ -71,8 +71,9 @@ def _read_optional_regular_text(filepath: str) -> str:
 
 
 def update_ini_text(  # noqa: C901 - single-pass parser preserves comments and ordering
-    text: str, section: str, settings: Mapping[str, str]
+    text: str, section: str, settings: Mapping[str, str | None]
 ) -> str:
+    """Set keys of one INI section; a None value removes that key."""
     output: list[str] = []
     is_target_section = False
     found_section = False
@@ -81,7 +82,8 @@ def update_ini_text(  # noqa: C901 - single-pass parser preserves comments and o
     def append_missing() -> None:
         for key, value in settings.items():
             if key not in updated_keys:
-                output.append(f"{key}={value}\n")
+                if value is not None:
+                    output.append(f"{key}={value}\n")
                 updated_keys.add(key)
 
     for line in text.splitlines(keepends=True):
@@ -96,7 +98,8 @@ def update_ini_text(  # noqa: C901 - single-pass parser preserves comments and o
             key = stripped.partition("=")[0].strip()
             if key in settings:
                 if key not in updated_keys:
-                    output.append(f"{key}={settings[key]}\n")
+                    if settings[key] is not None:
+                        output.append(f"{key}={settings[key]}\n")
                     updated_keys.add(key)
                 continue
             output.append(line)
@@ -112,6 +115,8 @@ def update_ini_text(  # noqa: C901 - single-pass parser preserves comments and o
     return "".join(output)
 
 
-def update_ini_file(filepath: str, section: str, settings: Mapping[str, str]) -> None:
+def update_ini_file(
+    filepath: str, section: str, settings: Mapping[str, str | None]
+) -> None:
     current = _read_optional_regular_text(filepath)
     write_text(filepath, update_ini_text(current, section, settings))

@@ -205,7 +205,7 @@ class SystemService:
             return False
 
     def _update_ini_settings(
-        self, filepath: str, section: str, settings: dict[str, str]
+        self, filepath: str, section: str, settings: dict[str, str | None]
     ) -> bool:
         if self.test_mode:
             return True
@@ -222,14 +222,21 @@ class SystemService:
         gtk_theme = "adw-gtk3-dark" if dark else "adw-gtk3"
         prefer_dark = "true" if dark else "false"
         settings = {
-            "gtk-application-prefer-dark-theme": prefer_dark,
             "gtk-theme-name": gtk_theme,
             "gtk-icon-theme-name": icon_theme,
         }
 
-        for gtk_dir in ("gtk-3.0", "gtk-4.0"):
+        # GTK 3 reads the dark preference from settings.ini. libadwaita warns
+        # about it on every start ("gtk-application-prefer-dark-theme with
+        # libadwaita is unsupported") and follows the color-scheme setting
+        # instead, so GTK 4 gets the key removed.
+        gtk_dirs = {
+            "gtk-3.0": {**settings, "gtk-application-prefer-dark-theme": prefer_dark},
+            "gtk-4.0": {**settings, "gtk-application-prefer-dark-theme": None},
+        }
+        for gtk_dir, values in gtk_dirs.items():
             settings_path = os.path.join(home, ".config", gtk_dir, "settings.ini")
-            self._update_ini_settings(settings_path, "Settings", settings)
+            self._update_ini_settings(settings_path, "Settings", values)
 
     def apply_language_settings(self, lang_code: str, timezone: str):
         """Applies language, locale, and timezone settings."""
