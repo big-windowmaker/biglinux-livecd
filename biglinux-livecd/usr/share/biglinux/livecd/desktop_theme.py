@@ -312,6 +312,13 @@ def _apply_xfce(host: ThemeHost, dark: bool) -> None:
         )
 
 
+def _apply_gsettings(host: ThemeHost, changes: SettingsChanges) -> None:
+    for path, values in changes.items():
+        schema = path.replace("/", ".")
+        for key, value in values.items():
+            host._run_command(["gsettings", "set", schema, key, value])
+
+
 def apply_simple_theme(host: ThemeHost, theme: str) -> bool:
     if theme not in {"dark", "light"}:
         logger.error("Refusing unsupported simple theme: %s", theme)
@@ -325,16 +332,18 @@ def apply_simple_theme(host: ThemeHost, theme: str) -> bool:
         host._ensure_gnome_settings_file()
         gnome_layout = _selected_gnome_layout(host)
     settings_file = settings_file_path(desktop_environment)
-    if not modify_settings_file(
-        host,
+    changes = _desktop_changes(
+        desktop_environment,
         settings_file,
-        _desktop_changes(
-            desktop_environment,
-            settings_file,
-            dark,
-            gnome_layout=gnome_layout,
-        ),
-    ):
+        dark,
+        gnome_layout=gnome_layout,
+    )
+    if desktop_environment == "WindowMaker":
+        # Window Maker has no dconf settings file synced by the session, so the
+        # values go straight to the user's dconf database, which is what the
+        # GTK portal reads for color-scheme.
+        _apply_gsettings(host, changes)
+    elif not modify_settings_file(host, settings_file, changes):
         return False
     if desktop_environment == "XFCE":
         _apply_xfce(host, dark)

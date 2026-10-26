@@ -119,6 +119,38 @@ def test_simple_theme_rejects_unknown_value_and_applies_xfce(
     assert any(command[0] == "xfconf-query" for command in host.commands)
 
 
+class FakeWindowMakerHost(FakeThemeHost):
+    def get_desktop_environment(self) -> str:
+        return "WindowMaker"
+
+
+def test_simple_theme_applies_window_maker_through_gsettings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    theme_list = tmp_path / "list-themes"
+    theme_list.write_text("fixture", encoding="utf-8")
+    host = FakeWindowMakerHost(theme_list)
+    assert apply_simple_theme(host, "light")
+    assert [
+        "gsettings",
+        "set",
+        "org.gnome.desktop.interface",
+        "color-scheme",
+        "'default'",
+    ] in host.commands
+    assert [
+        "gsettings",
+        "set",
+        "org.gnome.desktop.interface",
+        "icon-theme",
+        "'bigicons-papient'",
+    ] in host.commands
+    assert not any(command[0] == "xfconf-query" for command in host.commands)
+    assert not (tmp_path / ".config/dconf").exists()
+    assert host.gtk_settings == [(False, "bigicons-papient")]
+
+
 def test_user_config_writes_atomically_inside_home(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -220,3 +252,36 @@ def test_selected_gnome_layout_uses_live_state(tmp_path: Path) -> None:
 
     state.write_text("../../invalid\n", encoding="utf-8")
     assert _selected_gnome_layout(host) == ""
+
+
+def test_ini_update_removes_keys_set_to_none() -> None:
+    assert (
+        update_ini_text(
+            "[Settings]\ngtk-application-prefer-dark-theme=true\ngtk-theme-name=old\n",
+            "Settings",
+            {"gtk-application-prefer-dark-theme": None, "gtk-theme-name": "new"},
+        )
+        == "[Settings]\ngtk-theme-name=new\n"
+    )
+    assert update_ini_text("", "Settings", {"gone": None}) == "[Settings]\n"
+
+
+def test_gtk4_settings_never_get_the_dark_theme_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """libadwaita warns about gtk-application-prefer-dark-theme on every start."""
+    import services
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    gtk4 = tmp_path / ".config/gtk-4.0/settings.ini"
+    gtk4.parent.mkdir(parents=True)
+    gtk4.write_text("[Settings]\ngtk-application-prefer-dark-theme=true\n", encoding="utf-8")
+
+    services.SystemService()._apply_gtk_settings_ini(True, "bigicons-papient-dark")
+
+    gtk3_text = (tmp_path / ".config/gtk-3.0/settings.ini").read_text(encoding="utf-8")
+    gtk4_text = gtk4.read_text(encoding="utf-8")
+    assert "gtk-application-prefer-dark-theme=true" in gtk3_text
+    assert "prefer-dark-theme" not in gtk4_text
+    assert "gtk-theme-name=adw-gtk3-dark" in gtk4_text
+    assert "gtk-icon-theme-name=bigicons-papient-dark" in gtk4_text
