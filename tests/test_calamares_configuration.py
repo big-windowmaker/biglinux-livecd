@@ -679,7 +679,10 @@ def test_every_module_named_in_a_sequence_exists() -> None:
                     assert module in available, f"{settings_file}: no module {module}"
 
 
-def test_branding_catalog_covers_every_string_and_language() -> None:
+@pytest.mark.parametrize(("profile", "floor"), [("biglinux", 43), ("bigcommunity", 35)])
+def test_branding_catalog_covers_every_string_and_language(
+    profile: str, floor: int
+) -> None:
     """The installer's own screens are translated here, not through gettext.
 
     Calamares reads this catalog from the branding QML, so a string missing
@@ -693,8 +696,8 @@ def test_branding_catalog_covers_every_string_and_language() -> None:
 
     branding = (
         REPOSITORY
-        / "biglinux-livecd/usr/share/biglinux/calamares-profiles/biglinux"
-        / "branding/biglinux"
+        / f"biglinux-livecd/usr/share/biglinux/calamares-profiles/{profile}"
+        / f"branding/{profile}"
     )
     used = sorted(
         {
@@ -707,7 +710,7 @@ def test_branding_catalog_covers_every_string_and_language() -> None:
     )
     # One fewer since the review page dropped the description under its
     # title; the floor only guards against the regex matching nothing.
-    assert len(used) >= 43
+    assert len(used) >= floor
 
     # English is the source text; every other catalog the package ships needs
     # an entry for each of these.
@@ -741,6 +744,14 @@ for (const language of languages) {{
 }}
 // An unknown locale has to fall back to the source text, not to undefined.
 if (module_.t("Review", "xx_YY|marker") !== "Review") missing.push("fallback broken");
+// Qt.locale().name is a full locale: it reaches its own catalog, and a region
+// without one falls back to the language.
+if (module_.t("Review", "zh_TW|marker") === module_.t("Review", "zh_CN|marker"))
+    missing.push("zh_TW resolves to Simplified Chinese");
+if (module_.t("Review", "pt_PT|marker") !== module_.t("Review", "pt|marker"))
+    missing.push("pt_PT does not fall back to pt");
+if (module_.t("Review", "pt-br.UTF-8|marker") !== module_.t("Review", "pt_BR|marker"))
+    missing.push("locale name not normalized");
 console.log(JSON.stringify(missing));
 """
     result = subprocess.run(
