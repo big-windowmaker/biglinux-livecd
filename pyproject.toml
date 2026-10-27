@@ -22,6 +22,7 @@ known_first_party = [
     "translations",
     "ui",
     "user_config",
+    "windowmaker_look",
 ]
 package_module_name_map = { PyGObject = ["gi"] }
 per_rule_ignores = { DEP001 = ["libcalamares"] }

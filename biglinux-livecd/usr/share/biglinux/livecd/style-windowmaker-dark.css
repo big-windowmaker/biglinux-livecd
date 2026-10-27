@@ -1,0 +1,18 @@
+/* Big WindowMaker look, dark variant: the same bevels on charcoal surfaces.
+ * Only colours live here; style-windowmaker.css uses them. */
+
+@define-color wm_face #4a4a4a;
+@define-color wm_face_hover #575757;
+@define-color wm_light #747474;
+@define-color wm_shadow #262626;
+@define-color wm_edge #000000;
+@define-color wm_text #ececec;
+@define-color wm_text_dim #bdbdbd;
+@define-color wm_select_bg #6c7a80;
+@define-color wm_select_fg #ffffff;
+@define-color wm_field #2c2c2c;
+@define-color wm_focus #ffffff;
+@define-color wm_tile_from #6a6a76;
+@define-color wm_tile_to #2a2c32;
+@define-color wm_resizebar #3a3a3c;
+@define-color wm_trough #333333;

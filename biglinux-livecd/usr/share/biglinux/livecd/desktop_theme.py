@@ -25,6 +25,7 @@ class ThemeHost(Protocol):
     theme_apply_script: str
     theme_state_file: str
     gnome_layout_state_file: str
+    big_wm_theme_command: str
 
     def _run_command(
         self,
@@ -312,11 +313,39 @@ def _apply_xfce(host: ThemeHost, dark: bool) -> None:
         )
 
 
-def _apply_gsettings(host: ThemeHost, changes: SettingsChanges) -> None:
-    for path, values in changes.items():
-        schema = path.replace("/", ".")
-        for key, value in values.items():
-            host._run_command(["gsettings", "set", schema, key, value])
+def _apply_window_maker(host: ThemeHost, theme: str) -> bool:
+    """Hand the choice to big-wm-theme, which owns the edition's look.
+
+    Window Maker sessions use OneStepBack for GTK and QTStep for Kvantum, so
+    the adw-gtk3, BigAdwaitaRoundGtk and kdeglobals files the other editions
+    get would undo that look. big-wm-theme switches all of it (Window Maker,
+    wlmaker, GTK, Kvantum and the color scheme) and remembers the choice in
+    the user's configuration. Without it only the color scheme follows.
+    """
+    command = host.big_wm_theme_command
+    if os.path.isfile(command) and os.access(command, os.X_OK):
+        # Waits: the session starts right after the wizard and must find the
+        # theme already in place.
+        applied, _output = host._run_command([command, theme], wait_for_completion=True)
+        if applied:
+            return True
+        logger.error("big-wm-theme could not apply the %s theme", theme)
+    else:
+        logger.warning("big-wm-theme is unavailable; only the color scheme changes")
+        applied = True
+    # No dconf settings file is synced for this session, so the value goes
+    # straight to the user's dconf database, which the GTK portal reads.
+    color_scheme = "'prefer-dark'" if theme == "dark" else "'default'"
+    host._run_command(
+        [
+            "gsettings",
+            "set",
+            "org.gnome.desktop.interface",
+            "color-scheme",
+            color_scheme,
+        ]
+    )
+    return applied
 
 
 def apply_simple_theme(host: ThemeHost, theme: str) -> bool:
@@ -327,6 +356,8 @@ def apply_simple_theme(host: ThemeHost, theme: str) -> bool:
         return False
     dark = theme == "dark"
     desktop_environment = host.get_desktop_environment()
+    if desktop_environment == "WindowMaker":
+        return _apply_window_maker(host, theme)
     gnome_layout = ""
     if desktop_environment == "GNOME":
         host._ensure_gnome_settings_file()
@@ -338,12 +369,7 @@ def apply_simple_theme(host: ThemeHost, theme: str) -> bool:
         dark,
         gnome_layout=gnome_layout,
     )
-    if desktop_environment == "WindowMaker":
-        # Window Maker has no dconf settings file synced by the session, so the
-        # values go straight to the user's dconf database, which is what the
-        # GTK portal reads for color-scheme.
-        _apply_gsettings(host, changes)
-    elif not modify_settings_file(host, settings_file, changes):
+    if not modify_settings_file(host, settings_file, changes):
         return False
     if desktop_environment == "XFCE":
         _apply_xfce(host, dark)

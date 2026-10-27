@@ -1,0 +1,366 @@
+/* Big WindowMaker look of the setup wizard.
+ *
+ * Loaded only when the live desktop is Window Maker, over style.css. The
+ * wizard runs before the window manager starts, so it draws the Window Maker
+ * frame itself: the title bar, the resize bar, Dock-like tiles in the header
+ * and NeXTSTEP bevels everywhere else. The colours come from
+ * style-windowmaker-light.css or style-windowmaker-dark.css, swapped while
+ * the wizard runs when the user picks a theme.
+ *
+ * Bevels: raised = light top/left edge, black bottom/right edge with a grey
+ * inner shadow; sunken = the same edges reversed.
+ */
+
+window.windowmaker {
+    font-family: "Noto Sans", "Helvetica", "Nimbus Sans", sans-serif;
+    background-color: @wm_face;
+    background-image: none;
+    color: @wm_text;
+    border: 1px solid @wm_edge;
+}
+
+window.windowmaker label {
+    color: @wm_text;
+    font-size: 13px;
+    font-weight: normal;
+    text-shadow: none;
+}
+
+window.windowmaker .title-2 {
+    color: @wm_text;
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: none;
+}
+
+window.windowmaker .title-4,
+window.windowmaker .heading {
+    font-weight: bold;
+}
+
+window.windowmaker .caption {
+    color: @wm_text_dim;
+    font-size: 12px;
+}
+
+window.windowmaker .app-content,
+window.windowmaker scrolledwindow,
+window.windowmaker gridview,
+window.windowmaker flowbox {
+    background-color: @wm_face;
+    background-image: none;
+}
+
+/* --- Window Maker frame: title bar and resize bar --------------------- */
+
+window.windowmaker .wm-titlebar {
+    min-height: 22px;
+    padding: 0;
+    background-image: linear-gradient(to right, #505a5e, #202a2e);
+    border-bottom: 1px solid #000000;
+}
+
+window.windowmaker .wm-titlebar label.wm-title {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+window.windowmaker .wm-titlebutton {
+    min-width: 18px;
+    min-height: 18px;
+    margin: 1px;
+    background-color: #aaaaaa;
+    border: 1px solid;
+    border-color: #ffffff #000000 #000000 #ffffff;
+    box-shadow: inset -1px -1px #555555;
+}
+
+window.windowmaker .wm-resizebar {
+    min-height: 6px;
+    background-color: @wm_resizebar;
+    border-top: 1px solid @wm_edge;
+    box-shadow: inset 0 1px @wm_light;
+}
+
+window.windowmaker .wm-resizebar .wm-resizebar-corner {
+    min-width: 28px;
+}
+
+window.windowmaker .wm-resizebar .wm-resizebar-corner.start {
+    border-right: 1px solid @wm_edge;
+    box-shadow: inset -1px 0 @wm_shadow;
+}
+
+window.windowmaker .wm-resizebar .wm-resizebar-corner.end {
+    border-left: 1px solid @wm_edge;
+    box-shadow: inset 1px 0 @wm_light;
+}
+
+/* --- Header: logo and steps as Dock tiles ------------------------------ */
+
+window.windowmaker .app-header {
+    background-color: @wm_face;
+    background-image: none;
+    border-bottom: 1px solid @wm_edge;
+    box-shadow: inset 0 -1px @wm_shadow;
+}
+
+window.windowmaker .wm-tile,
+window.windowmaker .app-header button.wm-tile {
+    min-width: 56px;
+    min-height: 56px;
+    padding: 4px;
+    margin: 0;
+    border-radius: 0;
+    background-color: @wm_tile_to;
+    background-image: linear-gradient(135deg, @wm_tile_from, @wm_tile_to);
+    border: 1px solid;
+    border-color: @wm_light @wm_edge @wm_edge @wm_light;
+    box-shadow: inset -1px -1px @wm_shadow;
+    transform: none;
+    transition: none;
+    opacity: 1;
+}
+
+window.windowmaker .app-header button.wm-tile image {
+    animation: none;
+    transform: none;
+}
+
+window.windowmaker .app-header button.wm-tile:hover {
+    background-image: linear-gradient(135deg, shade(@wm_tile_from, 1.1), shade(@wm_tile_to, 1.1));
+}
+
+/* The step on screen is a pushed-in tile, as a running app in the Dock. */
+window.windowmaker .app-header button.wm-tile.step-current,
+window.windowmaker .app-header button.wm-tile:active {
+    border-color: @wm_edge @wm_light @wm_light @wm_edge;
+    box-shadow: inset 1px 1px @wm_shadow;
+}
+
+window.windowmaker .app-header button.wm-tile.step-pending image {
+    opacity: 0.45;
+}
+
+/* --- Fields, lists and cards ------------------------------------------- */
+
+window.windowmaker entry,
+window.windowmaker entry.search {
+    min-height: 28px;
+    border-radius: 0;
+    background-color: @wm_field;
+    color: @wm_text;
+    border: 1px solid;
+    border-color: @wm_shadow @wm_light @wm_light @wm_shadow;
+    box-shadow: inset 1px 1px @wm_edge;
+    outline: none;
+}
+
+window.windowmaker entry image,
+window.windowmaker entry text placeholder {
+    color: @wm_text_dim;
+}
+
+window.windowmaker gridview child,
+window.windowmaker flowbox flowboxchild {
+    border-radius: 0;
+    outline: none;
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+
+/* Language rows: the NeXT list selection. Flow-box children stay flat, their
+ * cards show the selection instead. */
+window.windowmaker gridview child:hover,
+window.windowmaker gridview child:selected {
+    background-color: @wm_select_bg;
+    border-color: @wm_shadow @wm_light @wm_light @wm_shadow;
+    box-shadow: inset 1px 1px @wm_edge;
+    outline: none;
+}
+
+window.windowmaker gridview child:hover label,
+window.windowmaker gridview child:selected label,
+window.windowmaker flowbox flowboxchild:hover .keyboard-item-card label,
+window.windowmaker flowbox flowboxchild:selected .keyboard-item-card label,
+window.windowmaker flowbox flowboxchild:hover .theme-card > label,
+window.windowmaker flowbox flowboxchild:selected .theme-card > label {
+    color: @wm_select_fg;
+}
+
+window.windowmaker flowbox flowboxchild picture {
+    background-image: none;
+    box-shadow: none;
+}
+
+/* Cards are raised NeXT buttons; hovering one pushes it in. */
+window.windowmaker .keyboard-item-card,
+window.windowmaker .theme-card,
+window.windowmaker .settings-card {
+    border-radius: 0;
+    background-color: @wm_face;
+    background-image: none;
+    border: 1px solid;
+    border-color: @wm_light @wm_edge @wm_edge @wm_light;
+    box-shadow: inset -1px -1px @wm_shadow;
+    outline: none;
+    transform: none;
+    transition: none;
+}
+
+window.windowmaker .keyboard-item-card label.title-2 {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+window.windowmaker .theme-card {
+    padding: 12px;
+}
+
+window.windowmaker flowbox flowboxchild:hover .keyboard-item-card,
+window.windowmaker flowbox flowboxchild:selected .keyboard-item-card,
+window.windowmaker flowbox flowboxchild:hover .theme-card,
+window.windowmaker flowbox flowboxchild:selected .theme-card {
+    background-color: @wm_select_bg;
+    background-image: none;
+    border-color: @wm_edge @wm_light @wm_light @wm_edge;
+    box-shadow: inset 1px 1px @wm_shadow;
+    transform: none;
+}
+
+window.windowmaker .settings-card:hover {
+    background-color: @wm_face_hover;
+    outline: none;
+}
+
+window.windowmaker .settings-card:focus-within,
+window.windowmaker .settings-card:focus-visible {
+    background-color: @wm_face_hover;
+    outline: 1px solid @wm_focus;
+    outline-offset: -4px;
+}
+
+window.windowmaker .settings-card image {
+    color: @wm_text;
+}
+
+/* Square switch: a sunken slot with a raised knob. */
+window.windowmaker switch {
+    border-radius: 0;
+    background-color: @wm_trough;
+    border: 1px solid;
+    border-color: @wm_shadow @wm_light @wm_light @wm_shadow;
+    box-shadow: inset 1px 1px @wm_edge;
+    color: @wm_text;
+}
+
+window.windowmaker switch:checked {
+    background-color: @wm_select_bg;
+}
+
+window.windowmaker switch slider {
+    border-radius: 0;
+    background-color: @wm_face;
+    background-image: none;
+    border: 1px solid;
+    border-color: @wm_light @wm_edge @wm_edge @wm_light;
+    box-shadow: inset -1px -1px @wm_shadow;
+}
+
+/* --- Light/Dark previews in the theme step (fixed colours) -------------- */
+
+window.windowmaker .wm-preview {
+    border: 1px solid #000000;
+}
+
+window.windowmaker .wm-preview-titlebar {
+    min-height: 16px;
+    background-image: linear-gradient(to right, #505a5e, #202a2e);
+    border-bottom: 1px solid #000000;
+}
+
+window.windowmaker .wm-preview-titlebar label {
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+window.windowmaker .wm-preview-button {
+    min-width: 12px;
+    min-height: 12px;
+    margin: 1px;
+    background-color: #aaaaaa;
+    border: 1px solid;
+    border-color: #ffffff #000000 #000000 #ffffff;
+}
+
+window.windowmaker .wm-preview-body {
+    padding: 10px;
+}
+
+window.windowmaker .wm-preview-field {
+    min-height: 54px;
+    padding: 6px;
+    border: 1px solid;
+}
+
+window.windowmaker .wm-preview-line {
+    min-height: 4px;
+    margin-bottom: 6px;
+}
+
+window.windowmaker .wm-preview-push {
+    min-width: 54px;
+    min-height: 18px;
+    border: 1px solid;
+}
+
+window.windowmaker .wm-preview-resizebar {
+    min-height: 5px;
+    border-top: 1px solid #000000;
+}
+
+window.windowmaker .wm-preview-light .wm-preview-body {
+    background-color: #aaaaaa;
+}
+
+window.windowmaker .wm-preview-light .wm-preview-field {
+    background-color: #ffffff;
+    border-color: #555555 #ffffff #ffffff #555555;
+}
+
+window.windowmaker .wm-preview-light .wm-preview-line {
+    background-color: #000000;
+}
+
+window.windowmaker .wm-preview-light .wm-preview-push {
+    background-color: #aaaaaa;
+    border-color: #ffffff #000000 #000000 #ffffff;
+}
+
+window.windowmaker .wm-preview-light .wm-preview-resizebar {
+    background-color: #c2c0c5;
+}
+
+window.windowmaker .wm-preview-dark .wm-preview-body {
+    background-color: #4a4a4a;
+}
+
+window.windowmaker .wm-preview-dark .wm-preview-field {
+    background-color: #2c2c2c;
+    border-color: #262626 #747474 #747474 #262626;
+}
+
+window.windowmaker .wm-preview-dark .wm-preview-line {
+    background-color: #ececec;
+}
+
+window.windowmaker .wm-preview-dark .wm-preview-push {
+    background-color: #4a4a4a;
+    border-color: #747474 #000000 #000000 #747474;
+}
+
+window.windowmaker .wm-preview-dark .wm-preview-resizebar {
+    background-color: #3a3a3c;
+}

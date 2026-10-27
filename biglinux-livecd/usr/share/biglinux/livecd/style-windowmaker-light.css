@@ -1,0 +1,18 @@
+/* Big WindowMaker look, light variant: the NeXTSTEP greys of QTStep OpenStep
+ * and OneStepBack. Only colours live here; style-windowmaker.css uses them. */
+
+@define-color wm_face #aaaaaa;
+@define-color wm_face_hover #b8b8b8;
+@define-color wm_light #ffffff;
+@define-color wm_shadow #555555;
+@define-color wm_edge #000000;
+@define-color wm_text #000000;
+@define-color wm_text_dim #303030;
+@define-color wm_select_bg #ffffff;
+@define-color wm_select_fg #000000;
+@define-color wm_field #ffffff;
+@define-color wm_focus #000000;
+@define-color wm_tile_from #a6a6b6;
+@define-color wm_tile_to #515561;
+@define-color wm_resizebar #c2c0c5;
+@define-color wm_trough #8a8a8a;

@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from typing import List, Tuple
 
+import windowmaker_look
 from config import SetupConfig
 from desktop_theme import (
     apply_packaged_theme,
@@ -40,6 +41,9 @@ class SystemService:
         )
         self.theme_list_script = os.path.join(self.base_themes_path, "list-themes.sh")
         self.theme_apply_script = os.path.join(self.base_themes_path, "apply-theme.sh")
+        # Big WindowMaker's own light/dark switch (big-wm package): it themes
+        # Window Maker, wlmaker, GTK (OneStepBack) and Qt (QTStep) together.
+        self.big_wm_theme_command = "/usr/bin/big-wm-theme"
 
         # Image paths
         self.desktop_image_path = os.path.join(self.base_themes_path, "img/{}.svg")
@@ -624,6 +628,16 @@ class SystemService:
             "Cinnamon",
             "WindowMaker",
         ]
+
+    def get_windowmaker_theme(self) -> str:
+        """Return the Big WindowMaker variant in use: "light" or "dark"."""
+        command = self.big_wm_theme_command
+        if not (os.path.isfile(command) and os.access(command, os.X_OK)):
+            return windowmaker_look.DEFAULT_VARIANT
+        success, output = self._run_command([command, "get"], read_only=True)
+        if not success:
+            return windowmaker_look.DEFAULT_VARIANT
+        return windowmaker_look.normalize_variant(output)
 
     def has_desktop_layout_step(self) -> bool:
         """Checks if the wizard should show the desktop layout step."""
