@@ -5,6 +5,8 @@ set -uo pipefail
 source /usr/lib/biglinux-livecd/kernel-options
 # shellcheck disable=SC1091
 source /usr/lib/biglinux-livecd/storage-probe
+# shellcheck disable=SC1091
+source /usr/lib/biglinux-livecd/window-maker-look
 
 # Every user-visible string below uses bash's own translated-string form rather
 # than a call to gettext. Two reasons: bash translates those itself, against
@@ -34,7 +36,10 @@ if [[ ! -d $calamares_state_directory || -L $calamares_state_directory ]] ||
 	exit 1
 fi
 
-gtk_dialog=(/usr/bin/python3 /usr/share/biglinux/calamares/gtk_dialog.py)
+# In Big WindowMaker the GTK windows get the session's theme and the window
+# manager's title bar; elsewhere the array stays empty.
+big_wm_set_gtk_environment
+gtk_dialog=(/usr/bin/env "${big_wm_gtk_environment[@]}" /usr/bin/python3 /usr/share/biglinux/calamares/gtk_dialog.py)
 
 wait_for_verification() {
 	local verification_state="" attempt
@@ -257,7 +262,7 @@ if [[ ! -d /sys/firmware/efi ]] && ((efi_partition_count > 0)); then
 fi
 
 rm -f -- "$calamares_state_directory/start_calamares"
-python3 /usr/share/biglinux/calamares/main.py
+/usr/bin/env "${big_wm_gtk_environment[@]}" python3 /usr/share/biglinux/calamares/main.py
 
 if [[ -f $calamares_state_directory/start_calamares && ! -L $calamares_state_directory/start_calamares ]]; then
 	# Calamares runs as root and reads its theme from root's config. On an
@@ -270,8 +275,15 @@ if [[ -f $calamares_state_directory/start_calamares && ! -L $calamares_state_dir
 	# read on the dark palette. The packaged BigLinux theme is that fixed light
 	# palette. Kvantum is removed first because cp -R into an existing
 	# directory nests the copy inside it instead of replacing it.
+	# Big WindowMaker is the exception: there every Qt window has the
+	# session's QTStep theme, and the installer follows it like the rest.
 	rm -rf -- /root/.config/Kvantum
-	if [[ -e /usr/share/biglinux/themes/biglinux/.config/kdeglobals ]]; then
+	if big_wm_kvantum=$(big_wm_kvantum_theme); then
+		# Big WindowMaker: the session's QTStep theme (window-maker-look). The
+		# Kvantum theme brings its own palette, so no kdeglobals is needed.
+		mkdir -p /root/.config/Kvantum
+		printf '[General]\ntheme=%s\n' "$big_wm_kvantum" >/root/.config/Kvantum/kvantum.kvconfig
+	elif [[ -e /usr/share/biglinux/themes/biglinux/.config/kdeglobals ]]; then
 		cp -f /usr/share/biglinux/themes/biglinux/.config/kdeglobals /root/.config/kdeglobals
 		cp -Rf /usr/share/biglinux/themes/biglinux/.config/Kvantum /root/.config/Kvantum
 	else

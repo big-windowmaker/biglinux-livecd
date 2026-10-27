@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+#
+# The Window Maker look for the installer windows, sourced by
+# calamares-biglinux, which runs as root.
+#
+# In a Big WindowMaker session every GTK window has the OneStepBack theme and
+# the window manager's title bar (the session preloads gtk-nocsd, which turns
+# off the header bar GTK draws itself), and every Qt window a QTStep Kvantum
+# theme. calamares-biglinux_polkit crosses into root with env -i, so it passes
+# on only the names it read in the session: BIGLINUX_BIG_WM=1,
+# BIGLINUX_GTK_THEME, BIGLINUX_GTK_NOCSD=1 and BIGLINUX_KVANTUM_THEME. Each one
+# is checked again here against what is installed, and only these fixed
+# values reach the environment of the installer's windows. Outside Big
+# WindowMaker none of this applies and the installer looks as it always did.
+
+# Fixed here, never taken from the environment (tests change them after
+# sourcing this file).
+big_wm_themes_directory=/usr/share/themes
+big_wm_kvantum_directory=/usr/share/Kvantum
+big_wm_nocsd_library=/usr/lib/libgtk-nocsd.so.0
+big_wm_library_owner=0
+# The Big WindowMaker default, for a session whose Kvantum file still names
+# a theme from another desktop.
+big_wm_default_kvantum_theme=QTStepOpenStep
+
+big_wm_session() {
+	[[ ${BIGLINUX_BIG_WM:-} == 1 ]]
+}
+
+# GTK theme name, with an optional variant (OneStepBack:dark), when that
+# theme is installed with GTK 4 support, which the installer dialogs use.
+big_wm_gtk_theme() {
+	local theme=${BIGLINUX_GTK_THEME:-}
+	big_wm_session || return 1
+	[[ $theme =~ ^[A-Za-z0-9_.+-]+(:[a-z]+)?$ ]] || return 1
+	[[ -d $big_wm_themes_directory/${theme%%:*}/gtk-4.0 ]] || return 1
+	printf '%s\n' "$theme"
+}
+
+# gtk-nocsd only from its packaged path: a regular root-owned file nobody
+# else can write. The value of the user's LD_PRELOAD never crosses over.
+big_wm_nocsd() {
+	local library=$big_wm_nocsd_library
+	big_wm_session && [[ ${BIGLINUX_GTK_NOCSD:-} == 1 ]] || return 1
+	[[ -f $library && ! -L $library ]] || return 1
+	[[ $(stat -c '%u' -- "$library" 2>/dev/null) == "$big_wm_library_owner" ]] || return 1
+	[[ -z $(find "$library" -maxdepth 0 -perm /022 2>/dev/null) ]] || return 1
+	printf '%s\n' "$library"
+}
+
+big_wm_kvantum_theme_installed() {
+	[[ $1 =~ ^[A-Za-z0-9_.+-]+$ && -f $big_wm_kvantum_directory/$1/$1.kvconfig ]]
+}
+
+# The user's Kvantum theme. The BigLinux themes (BigAdwaitaRound*) are what
+# the other desktops write there, not a Window Maker choice: those and an
+# unknown name fall back to the QTStep default.
+big_wm_kvantum_theme() {
+	local theme=${BIGLINUX_KVANTUM_THEME:-}
+	big_wm_session || return 1
+	if [[ $theme != BigAdwaitaRound* ]] && big_wm_kvantum_theme_installed "$theme"; then
+		printf '%s\n' "$theme"
+	elif big_wm_kvantum_theme_installed "$big_wm_default_kvantum_theme"; then
+		printf '%s\n' "$big_wm_default_kvantum_theme"
+	else
+		return 1
+	fi
+}
+
+# Environment for the GTK windows (dialogs and the installer launcher), as
+# NAME=value words in the big_wm_gtk_environment array.
+big_wm_set_gtk_environment() {
+	local value
+	big_wm_gtk_environment=()
+	if value=$(big_wm_gtk_theme); then
+		big_wm_gtk_environment+=("GTK_THEME=$value")
+	fi
+	if value=$(big_wm_nocsd); then
+		big_wm_gtk_environment+=("LD_PRELOAD=$value")
+	fi
+	return 0
+}

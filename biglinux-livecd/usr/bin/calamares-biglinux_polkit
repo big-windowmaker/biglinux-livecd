@@ -75,5 +75,35 @@ append_safe_environment AT_SPI_BUS_ADDRESS "$at_spi_bus_address" \
 
 ((software_render == 0)) || installer_environment+=("QT_QUICK_BACKEND=software")
 
+# Big WindowMaker gives every window the Window Maker look: GTK windows the
+# OneStepBack theme and the window manager's title bar (gtk-nocsd), Qt windows
+# a QTStep Kvantum theme. sudo env -i drops all of that, so the installer came
+# up as the only window with a GTK header bar and Qt's default style. Only
+# names are passed across, never paths or the user's files: the installer
+# checks each one against what is installed (/usr/lib/biglinux-livecd/
+# window-maker-look) before using it.
+is_big_windowmaker_session() {
+	case ":${XDG_CURRENT_DESKTOP:-}:" in
+	*:WindowMaker:* | *:wlmaker:*) return 0 ;;
+	esac
+	[[ ${DESKTOP_SESSION:-} == big-wm || ${DESKTOP_SESSION:-} == big-wm-* ]]
+}
+
+if is_big_windowmaker_session; then
+	installer_environment+=("BIGLINUX_BIG_WM=1")
+	# GTK_THEME may carry a variant, as in OneStepBack:dark.
+	append_safe_environment BIGLINUX_GTK_THEME "${GTK_THEME:-}" '^[A-Za-z0-9_.+-]+(:[a-z]+)?$'
+	# The session preloads gtk-nocsd unless the user turned it off.
+	case ":${LD_PRELOAD:-}:" in
+	*:/usr/lib/libgtk-nocsd.so.0:*) installer_environment+=("BIGLINUX_GTK_NOCSD=1") ;;
+	esac
+	kvantum_theme=$(
+		awk -F= '/^\[/ { general = ($0 == "[General]") }
+			general && $1 ~ /^[[:space:]]*theme[[:space:]]*$/ { sub(/^[[:space:]]+/, "", $2); print $2; exit }' \
+			"${XDG_CONFIG_HOME:-${HOME:-}/.config}/Kvantum/kvantum.kvconfig" 2>/dev/null || true
+	)
+	append_safe_environment BIGLINUX_KVANTUM_THEME "$kvantum_theme" '^[A-Za-z0-9_.+-]+$'
+fi
+
 exec sudo -- /usr/bin/env -i "${installer_environment[@]}" \
 	/usr/bin/calamares-biglinux "$@"
