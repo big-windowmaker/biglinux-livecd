@@ -248,3 +248,32 @@ def test_app_window_loads_the_look_only_for_window_maker() -> None:
     )
     assert 'self.add_css_class("windowmaker")' in source
     assert source.count("windowmaker_look.stylesheet_paths(") == 2
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_a_missing_icc_profile_tool_is_skipped_quietly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    enabled: bool,
+) -> None:
+    """Big WindowMaker ships no icc_profile_apply; the wizard logged an ERROR."""
+    import services
+
+    service = services.SystemService(test_mode=True)
+    service.icc_profile_command = str(tmp_path / "icc_profile_apply")
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        service, "_run_command", lambda command, **_kwargs: calls.append(command)
+    )
+
+    with caplog.at_level("DEBUG"):
+        service.apply_icc_profile_settings(enabled)
+        service._finalize_display_profile(enabled)
+    assert calls == []
+    assert not [record for record in caplog.records if record.levelname == "ERROR"]
+
+    (tmp_path / "icc_profile_apply").write_text("", encoding="utf-8")
+    service.apply_icc_profile_settings(enabled)
+    action = "enable" if enabled else "disable"
+    assert calls == [[str(tmp_path / "icc_profile_apply"), action]]

@@ -44,6 +44,8 @@ class SystemService:
         # Big WindowMaker's own light/dark switch (big-wm package): it themes
         # Window Maker, wlmaker, GTK (OneStepBack) and Qt (QTStep) together.
         self.big_wm_theme_command = "/usr/bin/big-wm-theme"
+        # Display color profile tool; not every edition ships it.
+        self.icc_profile_command = "/usr/bin/icc_profile_apply"
 
         # Image paths
         self.desktop_image_path = os.path.join(self.base_themes_path, "img/{}.svg")
@@ -234,7 +236,7 @@ class SystemService:
         # about it on every start ("gtk-application-prefer-dark-theme with
         # libadwaita is unsupported") and follows the color-scheme setting
         # instead, so GTK 4 gets the key removed.
-        gtk_dirs = {
+        gtk_dirs: dict[str, dict[str, str | None]] = {
             "gtk-3.0": {**settings, "gtk-application-prefer-dark-theme": prefer_dark},
             "gtk-4.0": {**settings, "gtk-application-prefer-dark-theme": None},
         }
@@ -454,7 +456,16 @@ class SystemService:
             self._write_live_state_file(self.display_profile_state_file, "enabled")
         else:
             self._remove_live_state_file(self.display_profile_state_file)
-        self._run_command(["/usr/bin/icc_profile_apply", action], as_root=False)
+        self._run_icc_profile_command(action)
+
+    def _run_icc_profile_command(self, action: str) -> None:
+        # Big WindowMaker, for one, has no icc_profile_apply: the choice is
+        # still recorded for the installed system, and running the missing
+        # tool only logged "Command not found" as an error.
+        if not os.path.isfile(self.icc_profile_command):
+            logger.debug("No display color profile tool; nothing to apply now")
+            return
+        self._run_command([self.icc_profile_command, action], as_root=False)
 
     def get_desktop_image_path(self, layout_name: str) -> str:
         if self.get_desktop_environment() == "GNOME":
@@ -524,17 +535,11 @@ class SystemService:
         if enabled:
             logger.info("Applying ICC profile enabled settings...")
             self._write_live_state_file(self.display_profile_state_file, "enabled")
-            self._run_command(
-                ["/usr/bin/icc_profile_apply", "enable"],
-                as_root=False,
-            )
+            self._run_icc_profile_command("enable")
         else:
             logger.info("Applying ICC profile disabled settings...")
             self._remove_live_state_file(self.display_profile_state_file)
-            self._run_command(
-                ["/usr/bin/icc_profile_apply", "disable"],
-                as_root=False,
-            )
+            self._run_icc_profile_command("disable")
 
     def check_jamesdsp_availability(self) -> bool:
         """Checks if JamesDSP executable exists."""

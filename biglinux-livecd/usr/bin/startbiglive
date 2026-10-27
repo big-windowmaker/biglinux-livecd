@@ -306,6 +306,25 @@ _enable_accessibility() {
 	_log "WARNING - No accessibility bus available; the wizard will not be readable"
 }
 
+# Software rendering for the X11 wizard where the GPU path only fails.
+#
+# GTK 4 tries Vulkan first. In virtual machines and on Mesa amber (old GPUs
+# without OpenGL 3) that fails, logging radv/MESA and vkEnumeratePhysicalDevices
+# errors several times, and then loads llvmpipe. The wizard gets the cairo
+# renderer there instead, the rule the Big WindowMaker session itself uses
+# (big-wm-env.sh). Added to wizard_environment, so it reaches the wizard's
+# process only; the desktop session decides for itself. A GSK_RENDERER the
+# session already has wins. Call it after _enable_accessibility, which resets
+# wizard_environment.
+_select_wizard_renderer() {
+	[[ -n ${GSK_RENDERER:-} ]] && return 0
+	if compgen -G '/var/lib/pacman/local/mesa-amber-*' >/dev/null ||
+		systemd-detect-virt -q 2>/dev/null; then
+		wizard_environment+=("GSK_RENDERER=cairo")
+		_log "Software (cairo) GTK renderer for the wizard"
+	fi
+}
+
 # Puts the session's accessibility bus back after the wizard.
 #
 # at-spi-bus-launcher unlinks $XDG_RUNTIME_DIR/at-spi/bus before binding its
@@ -639,6 +658,7 @@ if [[ "$session_type" == "x11" ]]; then
 	# at-spi-dbus-bus.service; only the toolkits still have to be told.
 	if _claim_setup_wizard; then
 		_enable_accessibility
+		_select_wizard_renderer
 		env "${wizard_environment[@]}" python /usr/share/biglinux/livecd/main.py
 	fi
 else
