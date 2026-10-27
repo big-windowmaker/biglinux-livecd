@@ -170,6 +170,7 @@ def test_root_side_uses_only_installed_names(tmp_path: Path) -> None:
         },
         PRINT_ALL,
     )
+    assert "gtk:BIGLINUX_WINDOW_MAKER=1\n" in output
     assert "gtk:GTK_THEME=OneStepBack\n" in output
     assert f"gtk:LD_PRELOAD={tmp_path}/libgtk-nocsd.so.0\n" in output
     assert "kvantum:QTStepDark\n" in output
@@ -238,3 +239,16 @@ def test_launcher_applies_the_look_to_every_gtk_window() -> None:
     assert "$BIGLINUX_GTK_THEME" not in launcher
     assert "${BIGLINUX_KVANTUM_THEME" not in launcher
     assert "big_wm_kvantum=$(big_wm_kvantum_theme)" in launcher
+
+
+def test_installer_windows_are_opaque_in_window_maker() -> None:
+    calamares = PACKAGE / "usr/share/biglinux/calamares"
+    main = (calamares / "main.py").read_text(encoding="utf-8")
+    dialog = (calamares / "gtk_dialog.py").read_text(encoding="utf-8")
+    for source in (main, dialog):
+        assert 'os.environ.get("BIGLINUX_WINDOW_MAKER") == "1"' in source
+    # The translucent background is only added outside Window Maker.
+    translucent = dialog.index("alpha(@theme_bg_color, 0.97)")
+    assert dialog.rindex("BIGLINUX_WINDOW_MAKER", 0, translucent) > 0
+    body = main[main.index("def load_custom_css") :]
+    assert body.index("BIGLINUX_WINDOW_MAKER") < body.index("alpha(@theme_bg_color")

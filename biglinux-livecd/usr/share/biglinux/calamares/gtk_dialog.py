@@ -214,14 +214,23 @@ def _draw_integrity_success_check(_area, context, width, height) -> None:
 def _show_integrity_wait(app: DialogApp, args):
     global _exit_code
 
-    provider = Gtk.CssProvider()
-    provider.load_from_string(
-        """
-        .integrity-card {
-            padding: 30px;
-        }
+    # Big WindowMaker (set by calamares-biglinux): opaque, like every other
+    # Window Maker window, on the theme's own background.
+    translucent_background = (
+        ""
+        if os.environ.get("BIGLINUX_WINDOW_MAKER") == "1"
+        else """
         window.integrity-window.background {
             background-color: alpha(@theme_bg_color, 0.97);
+        }
+        """
+    )
+    provider = Gtk.CssProvider()
+    provider.load_from_string(
+        translucent_background
+        + """
+        .integrity-card {
+            padding: 30px;
         }
         .integrity-title {
             font-size: 1.35em;

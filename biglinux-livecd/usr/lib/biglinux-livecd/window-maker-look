@@ -73,6 +73,9 @@ big_wm_kvantum_theme() {
 big_wm_set_gtk_environment() {
 	local value
 	big_wm_gtk_environment=()
+	# Tells the installer windows to stay opaque like every other Window
+	# Maker window (their translucent background is a Plasma/GNOME touch).
+	big_wm_session && big_wm_gtk_environment+=("BIGLINUX_WINDOW_MAKER=1")
 	if value=$(big_wm_gtk_theme); then
 		big_wm_gtk_environment+=("GTK_THEME=$value")
 	fi
