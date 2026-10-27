@@ -337,7 +337,7 @@ if [[ -f $calamares_state_directory/start_calamares && ! -L $calamares_state_dir
 		# runuser keeps root's HOME, where the user's dconf database is not.
 	value=$(runuser -u "$user" -- env HOME="$user_home" gsettings get "$schema" "$key" 2>/dev/null) || return 1
 		[[ -n $value ]] || return 1
-		dbus-launch dconf write "$path" "$value" >/dev/null 2>&1
+		dbus-run-session -- dconf write "$path" "$value" >/dev/null 2>&1
 	}
 
 	copy_gnome_preference org.gnome.desktop.wm.preferences button-layout \
@@ -345,7 +345,14 @@ if [[ -f $calamares_state_directory/start_calamares && ! -L $calamares_state_dir
 	copy_gnome_preference org.gnome.desktop.interface color-scheme \
 		/org/gnome/desktop/interface/color-scheme || true
 
-	env "${calamares_environment[@]}" dbus-launch /usr/bin/calamares
+	# A private session bus that ends with Calamares. dbus-launch left its
+	# bus daemon running after the program exited - one per call - and with
+	# it everything the bus had started for root: dconf-service, the
+	# portals, gvfsd and a gvfsd-fuse mount on /root/.gvfs, some 260 MB on
+	# the live system for every time the installer was opened. dbus-run-session
+	# stops the daemon when its program exits, and the services it started
+	# leave with it.
+	dbus-run-session -- env "${calamares_environment[@]}" /usr/bin/calamares
 
 	session_log=/root/.cache/calamares/session.log
 	if [[ ! -f $session_log || -L $session_log ]]; then

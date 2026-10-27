@@ -778,3 +778,19 @@ def test_packaging_no_longer_replaces_distribution_binaries() -> None:
     # -c is --check-format plus the header and domain checks.
     assert "msgfmt -c" in pkgbuild
     assert "python -m compileall" in pkgbuild
+
+
+def test_installer_session_bus_ends_with_calamares() -> None:
+    # dbus-launch leaves its bus daemon running after the program exits, and
+    # with it every service the bus started for root (dconf-service, the
+    # portals, gvfsd and a gvfsd-fuse mount on /root/.gvfs).
+    launcher = (PACKAGE / "usr/bin/calamares-biglinux").read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in launcher.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "dbus-launch" not in code
+    assert 'dbus-run-session -- dconf write "$path" "$value"' in code
+    assert (
+        'dbus-run-session -- env "${calamares_environment[@]}" /usr/bin/calamares'
+        in code
+    )
