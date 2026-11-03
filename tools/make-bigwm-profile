@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# make-bigwm-profile <calamares-profiles> - perfil "bigwm" do instalador.
+#
+# A edição Big WindowMaker se apresenta como "Big WindowMaker", baseada no
+# BigLinux, e não como BigCommunity. O perfil é o do bigcommunity (módulos,
+# partições, QML e traduções), copiado na hora do empacotamento com o nome, os
+# endereços e o logo trocados: acompanha qualquer mudança no perfil original
+# sem uma segunda árvore para manter. A imagem escolhe o perfil pelo marcador
+# /etc/biglinux-livecd/profile (ver usr/lib/biglinux-livecd/resolve-profile).
+#
+# As traduções (i18n.js) trazem "BigLinux" no texto e o QML troca pelo
+# productName, então "BigLinux has been installed" sai com o nome certo.
+#
+# bootloaderEntryName "Big": a pasta EFI é a primeira palavra do
+# GRUB_DISTRIBUTOR ("Big WindowMaker"), a mesma que o install-grub e o
+# grub-efi-fallback usam nas atualizações do GRUB.
+set -euo pipefail
+
+root=${1:?uso: make-bigwm-profile <diretório calamares-profiles>}
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+src=$root/bigcommunity
+dst=$root/bigwm
+
+[[ -d $src/branding/bigcommunity ]] || { echo "make-bigwm-profile: sem $src" >&2; exit 1; }
+rm -rf -- "$dst"
+cp -a -- "$src" "$dst"
+mv -- "$dst/branding/bigcommunity" "$dst/branding/bigwm"
+brand=$dst/branding/bigwm
+
+# ${BUILD_ID} é do Calamares (substituído pelo os-release), não do shell.
+# shellcheck disable=SC2016
+sed -i \
+	-e 's|^componentName:.*|componentName: bigwm|' \
+	-e 's|^\(    productName:\).*|\1 Big WindowMaker|' \
+	-e 's|^\(    shortProductName:\).*|\1 Big WindowMaker|' \
+	-e 's|^\(    shortVersionedName:\).*|\1 "Big WindowMaker ${BUILD_ID}"|' \
+	-e 's|^\(    bootloaderEntryName:\).*|\1 Big|' \
+	-e 's|^\(    productUrl:\).*|\1 https://github.com/big-windowmaker|' \
+	-e 's|^\(    supportUrl:\).*|\1 https://github.com/big-windowmaker/big-wm/issues|' \
+	-e 's|^\(    knownIssuesUrl:\).*|\1 https://github.com/big-windowmaker/big-wm/issues|' \
+	-e 's|^\(    releaseNotesUrl:\).*|\1 https://github.com/big-windowmaker/build-iso/releases|' \
+	-e '/^    # The forum is shared with BigLinux on purpose\.$/d' \
+	"$brand/branding.desc"
+sed -i 's|^branding: bigcommunity$|branding: bigwm|' "$dst/settings.conf"
+sed -i 's|"Powered by BigCommunity"|"Powered by Big WindowMaker"|' "$brand/BigBlocks.qml"
+install -m644 "$here/bigwm/logo.svg" "$brand/logo.svg"
+cat >"$dst/profile.json" <<'EOF'
+{
+  "id": "bigwm",
+  "display_name": "Big WindowMaker",
+  "branding": "bigwm",
+  "netinstall": false,
+  "warn_old_release": false
+}
+EOF
+
+# Nada do nome antigo pode sobrar no que o instalador mostra.
+if grep -n -E '^ +(productName|shortProductName|shortVersionedName|bootloaderEntryName|productUrl|supportUrl|knownIssuesUrl|releaseNotesUrl):.*([Cc]ommunity|BigLinux)' \
+	"$brand/branding.desc"; then
+	echo "make-bigwm-profile: branding.desc ainda com o nome antigo" >&2
+	exit 1
+fi
+grep -qx 'branding: bigwm' "$dst/settings.conf" ||
+	{ echo "make-bigwm-profile: settings.conf sem branding: bigwm" >&2; exit 1; }
