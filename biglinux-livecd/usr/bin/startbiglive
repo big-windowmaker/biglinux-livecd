@@ -953,6 +953,12 @@ elif [[ -e /usr/bin/startbigwm ]]; then
 	# Big WindowMaker: Clean up and start the Window Maker session
 	rm -f "$HOME/Empty Bash" "$HOME/Empty Desktop File.desktop" "$HOME/Empty File"
 	xdg-user-dirs-update
+	# Sessão "livecdWayland" do LightDM: o startbigwm é o da sessão X11 e
+	# morria sem servidor X, de volta à tela de login (conferido na VM com a
+	# ISO de 2026-11-03).
+	if [[ $session_type == wayland && -x /usr/bin/startbigwm-wayland ]]; then
+		exec startbigwm-wayland
+	fi
 	exec startbigwm
 fi
 
