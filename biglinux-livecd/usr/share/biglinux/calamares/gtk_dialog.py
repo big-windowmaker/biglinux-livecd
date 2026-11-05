@@ -85,12 +85,20 @@ _exit_code = 1  # default Cancel
 _selected_value = ""
 
 
+INSTALLER_APP_ID = "com.biglinux.calamares-config"
+INSTALLER_ICON = "icon-big-hd-install"
+
+
 class DialogApp(Adw.Application):
     """Single-instance GTK4 application for showing one dialog and quitting."""
 
     def __init__(self, dialog_func, args):
+        # Only the installer opens these dialogs, so they carry its id: docks
+        # and task bars group them with the "Install System" launcher and its
+        # icon (com.biglinux.calamares-config.desktop) instead of showing a
+        # generic one. NON_UNIQUE keeps them off the installer's bus name.
         super().__init__(
-            application_id="com.biglinux.gtk-dialog",
+            application_id=INSTALLER_APP_ID,
             flags=Gio.ApplicationFlags.NON_UNIQUE,
         )
         self._dialog_func = dialog_func
@@ -214,14 +222,23 @@ def _draw_integrity_success_check(_area, context, width, height) -> None:
 def _show_integrity_wait(app: DialogApp, args):
     global _exit_code
 
-    provider = Gtk.CssProvider()
-    provider.load_from_string(
-        """
-        .integrity-card {
-            padding: 30px;
-        }
+    # Big WindowMaker (set by calamares-biglinux): opaque, like every other
+    # Window Maker window, on the theme's own background.
+    translucent_background = (
+        ""
+        if os.environ.get("BIGLINUX_WINDOW_MAKER") == "1"
+        else """
         window.integrity-window.background {
             background-color: alpha(@theme_bg_color, 0.97);
+        }
+        """
+    )
+    provider = Gtk.CssProvider()
+    provider.load_from_string(
+        translucent_background
+        + """
+        .integrity-card {
+            padding: 30px;
         }
         .integrity-title {
             font-size: 1.35em;
@@ -752,7 +769,11 @@ def main():
     # Handle SIGINT gracefully
     signal.signal(signal.SIGINT, lambda *_: sys.exit(1))
 
+    # X11 WM_CLASS comes from the program name, read when GTK opens the
+    # display: the installer's, like its id (see DialogApp).
+    GLib.set_prgname(INSTALLER_APP_ID)
     Adw.init()
+    Gtk.Window.set_default_icon_name(INSTALLER_ICON)
 
     parser = build_parser()
     args = parser.parse_args()

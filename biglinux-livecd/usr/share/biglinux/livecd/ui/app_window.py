@@ -10,6 +10,7 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
+import windowmaker_look
 from accessibility import (
     announce,
     ensure_orca_disabled,
@@ -31,6 +32,9 @@ ASSETS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "asse
 # Default logo paths
 DEFAULT_LOGO_PATH = os.path.join(ASSETS_DIR, "logo.png")
 DEFAULT_COMM_LOGO_PATH = os.path.join(ASSETS_DIR, "comm-logo.png")
+
+# The Window Maker look goes over style.css, and its palette over the rules.
+WINDOWMAKER_STYLE_PRIORITY = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1
 
 
 def get_logo_path(system_service: SystemService | None = None):
@@ -90,6 +94,12 @@ class AppWindow(Adw.ApplicationWindow):
         self._preload_started = False
         self.has_desktop_step = system_service.has_desktop_layout_step()
         self.uses_simple_theme = system_service.uses_simple_theme_selector()
+        self.windowmaker_look = windowmaker_look.is_windowmaker(
+            system_service.get_desktop_environment()
+        )
+        self.windowmaker_variant: str | None = None
+        self._windowmaker_palette: Gtk.CssProvider | None = None
+        self._windowmaker_title: Gtk.Label | None = None
         # Ensure ORCA is not running — user activates it manually via Super+Alt+S
         GLib.timeout_add(500, ensure_orca_disabled)
         self.set_title(_("BigLinux Setup"))
@@ -129,6 +139,8 @@ class AppWindow(Adw.ApplicationWindow):
                 css_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
+        if self.windowmaker_look:
+            self._load_windowmaker_look()
 
         self.set_content(self._build_ui())
         self._update_header_state()
@@ -141,8 +153,53 @@ class AppWindow(Adw.ApplicationWindow):
         self.add_controller(key_controller)
         self.connect("map", self._schedule_initial_preload)
 
+    def _load_windowmaker_look(self) -> None:
+        """Dress the wizard as a Window Maker application (see the CSS)."""
+        base_css, _palette = windowmaker_look.stylesheet_paths("light")
+        if not os.path.exists(base_css):
+            logger.error("The Window Maker stylesheet is missing")
+            self.windowmaker_look = False
+            return
+        provider = Gtk.CssProvider()
+        provider.load_from_path(base_css)
+        Gtk.StyleContext.add_provider_for_display(
+            self.get_display(), provider, WINDOWMAKER_STYLE_PRIORITY
+        )
+        self.add_css_class("windowmaker")
+        self.set_windowmaker_variant(self.system_service.get_windowmaker_theme())
+
+    def set_windowmaker_variant(self, variant: str) -> None:
+        """Switch the wizard between the light and dark Window Maker look."""
+        if not self.windowmaker_look:
+            return
+        variant = windowmaker_look.normalize_variant(variant)
+        if variant == self.windowmaker_variant:
+            return
+        _base_css, palette_css = windowmaker_look.stylesheet_paths(variant)
+        provider = Gtk.CssProvider()
+        provider.load_from_path(palette_css)
+        display = self.get_display()
+        # The new palette goes in before the old one leaves, so no restyle
+        # ever finds the colours undefined.
+        Gtk.StyleContext.add_provider_for_display(
+            display, provider, WINDOWMAKER_STYLE_PRIORITY
+        )
+        if self._windowmaker_palette is not None:
+            Gtk.StyleContext.remove_provider_for_display(
+                display, self._windowmaker_palette
+            )
+        self._windowmaker_palette = provider
+        self.windowmaker_variant = variant
+        Adw.StyleManager.get_default().set_color_scheme(
+            Adw.ColorScheme.FORCE_DARK
+            if variant == "dark"
+            else Adw.ColorScheme.FORCE_LIGHT
+        )
+
     def _build_ui(self):
         root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        if self.windowmaker_look:
+            root_box.append(self._build_windowmaker_titlebar())
         root_box.append(self._build_header())
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
         content_box.add_css_class("app-content")
@@ -153,8 +210,61 @@ class AppWindow(Adw.ApplicationWindow):
         content_box.append(self.stack)
         self._add_language_view()
         self.stack.set_visible_child_name("language")
+        if self.windowmaker_look:
+            root_box.append(self._build_windowmaker_resizebar())
         GLib.idle_add(self._update_header_state)
         return root_box
+
+    def _build_windowmaker_titlebar(self) -> Gtk.CenterBox:
+        """Draw a Window Maker title bar; no window manager runs yet.
+
+        The buttons are drawn only: the wizard has no close or miniaturize
+        action, so they are not focusable and screen readers skip them.
+        """
+        titlebar = Gtk.CenterBox(css_classes=["wm-titlebar"])
+        titlebar.set_start_widget(self._windowmaker_titlebutton("wm-miniaturize.svg"))
+        titlebar.set_end_widget(self._windowmaker_titlebutton("wm-close.svg"))
+        self._windowmaker_title = Gtk.Label(
+            label=windowmaker_look.TITLE,
+            css_classes=["wm-title"],
+            accessible_role=Gtk.AccessibleRole.PRESENTATION,
+        )
+        titlebar.set_center_widget(self._windowmaker_title)
+        return titlebar
+
+    @staticmethod
+    def _windowmaker_titlebutton(glyph: str) -> Gtk.Box:
+        button = Gtk.Box(
+            css_classes=["wm-titlebutton"],
+            accessible_role=Gtk.AccessibleRole.PRESENTATION,
+            valign=Gtk.Align.CENTER,
+            halign=Gtk.Align.CENTER,
+        )
+        image = Gtk.Image(
+            file=os.path.join(ASSETS_DIR, glyph),
+            pixel_size=12,
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.CENTER,
+            accessible_role=Gtk.AccessibleRole.PRESENTATION,
+        )
+        button.append(image)
+        return button
+
+    @staticmethod
+    def _build_windowmaker_resizebar() -> Gtk.Box:
+        resizebar = Gtk.Box(
+            css_classes=["wm-resizebar"],
+            accessible_role=Gtk.AccessibleRole.PRESENTATION,
+        )
+        resizebar.append(Gtk.Box(css_classes=["wm-resizebar-corner", "start"]))
+        resizebar.append(Gtk.Box(hexpand=True))
+        resizebar.append(Gtk.Box(css_classes=["wm-resizebar-corner", "end"]))
+        return resizebar
+
+    def _header_logo_path(self, default_path: str) -> str:
+        if self.windowmaker_look:
+            return windowmaker_look.logo_path(default_path)
+        return default_path
 
     def _build_header(self) -> Gtk.CenterBox:
         header_wrapper = Gtk.CenterBox()
@@ -183,7 +293,9 @@ class AppWindow(Adw.ApplicationWindow):
 
         if not self.has_desktop_step:
             self._append_logo(
-                header_content_box, get_comm_logo_path(self.system_service)
+                header_content_box,
+                self._header_logo_path(get_comm_logo_path(self.system_service)),
+                tile=self.windowmaker_look,
             )
             self._add_step_button(header_content_box, self.steps[0])
             self._add_step_button(header_content_box, self.steps[1])
@@ -196,21 +308,34 @@ class AppWindow(Adw.ApplicationWindow):
                 if self.uses_simple_theme
                 else get_logo_path(self.system_service)
             )
-            self._append_logo(header_content_box, logo_path)
+            self._append_logo(
+                header_content_box,
+                self._header_logo_path(logo_path),
+                tile=self.windowmaker_look,
+            )
             self._add_step_button(header_content_box, self.steps[2])
             self._add_step_button(header_content_box, self.steps[3])
         return header_wrapper
 
     @staticmethod
-    def _append_logo(box: Gtk.Box, path: str) -> None:
+    def _append_logo(box: Gtk.Box, path: str, tile: bool = False) -> None:
         if not os.path.exists(path):
             return
         logo = Gtk.Image.new_from_file(path)
-        logo.set_pixel_size(72)
-        logo.set_margin_start(20)
-        logo.set_margin_end(20)
         logo.update_property([Gtk.AccessibleProperty.LABEL], [_("BigLinux Logo")])
-        box.append(logo)
+        if not tile:
+            logo.set_pixel_size(72)
+            logo.set_margin_start(20)
+            logo.set_margin_end(20)
+            box.append(logo)
+            return
+        # Window Maker: the logo sits in a Dock tile, as on the desktop.
+        logo.set_pixel_size(56)
+        logo_tile = Gtk.Box(css_classes=["wm-tile"], valign=Gtk.Align.CENTER)
+        logo_tile.set_margin_start(20)
+        logo_tile.set_margin_end(20)
+        logo_tile.append(logo)
+        box.append(logo_tile)
 
     def _retranslate_ui(self):  # noqa: C901 - translates heterogeneous lazy pages
         """Updates all visible text in the application to the new language."""
@@ -377,11 +502,13 @@ class AppWindow(Adw.ApplicationWindow):
         path = os.path.join(ASSETS_DIR, step_info["file"])
         texture = load_svg_texture(path, 48)
         img = Gtk.Image.new_from_paintable(texture)
-        img.set_pixel_size(64)
+        img.set_pixel_size(self._step_icon_size(64))
         button.set_child(img)
         button.set_size_request(64, 64)
         button.connect("clicked", self._on_step_button_clicked, step_info["name"])
         button.add_css_class("flat")
+        if self.windowmaker_look:
+            button.add_css_class("wm-tile")
 
         # Accessible label and description for screen readers
         label_fn = self._STEP_LABELS.get(step_info["name"])
@@ -450,6 +577,14 @@ class AppWindow(Adw.ApplicationWindow):
             )
         except StopIteration:
             current_index = -1
+
+        if self._windowmaker_title is not None:
+            label_fn = self._STEP_LABELS.get(search_name)
+            self._windowmaker_title.set_label(
+                f"{windowmaker_look.TITLE} — {label_fn()}"
+                if label_fn
+                else windowmaker_look.TITLE
+            )
 
         for i, step in enumerate(self.steps):
             if button := step.get("button"):
@@ -553,8 +688,12 @@ class AppWindow(Adw.ApplicationWindow):
             else os.path.join(ASSETS_DIR, "headerbar-locale.svg")
         )
         image.set_from_paintable(load_svg_texture(path, 48))
-        image.set_pixel_size(48)
+        image.set_pixel_size(self._step_icon_size(48))
         return GLib.SOURCE_REMOVE
+
+    def _step_icon_size(self, default: int) -> int:
+        # Window Maker tiles are drawn at full size, not scaled down by half.
+        return 40 if self.windowmaker_look else default
 
     def _apply_language_settings(
         self, language: str, timezone: str, speech_language: str
@@ -660,8 +799,13 @@ class AppWindow(Adw.ApplicationWindow):
             system_service=self.system_service,
             runtime_state=self._theme_runtime_states[True],
             simplified_mode=True,
+            windowmaker_variant=self.windowmaker_variant,
         )
         view.connect("theme-selected", self._on_simple_theme_selected)
+        view.connect(
+            "theme-previewed",
+            lambda _view, theme: self.set_windowmaker_variant(theme),
+        )
         self.stack.add_titled(view, "simple_theme", _("Theme"))
 
     def _on_simple_theme_selected(self, view, theme):
@@ -680,6 +824,7 @@ class AppWindow(Adw.ApplicationWindow):
 
             # Save to config
             self.config.simple_theme = theme
+            self.set_windowmaker_variant(theme)
             logger.debug(f"Saved theme to config: {theme}")
 
             # Apply simple theme (light or dark)

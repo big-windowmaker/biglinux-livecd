@@ -1262,12 +1262,68 @@ var byLanguage = {
         "You can still go back and adjust any choice before starting the installation.": "在安装开始之前，您仍可以返回并修改任何选择。",
         "You may restart into the new system or continue using the live environment.": "您可以重启进入新系统，也可以继续使用live环境。",
         "Your name": "您的姓名"
+    },
+    "zh_TW": {
+        "Account preview": "帳號預覽",
+        "A required condition is not satisfied. Review the items below before continuing.": "有一項必要條件未滿足。繼續之前請檢查下方的項目。",
+        "BigLinux has been installed on your computer.": "BigLinux 已安裝到您的電腦上。",
+        "BigLinux logo surrounded by slowly moving rings": "被緩慢轉動的圓環環繞的 BigLinux 標誌",
+        "Choose the language": "選擇語言",
+        "Computer name": "電腦名稱",
+        "Create your account and choose the name used by this computer on the network.": "建立您的帳號，並選擇這台電腦在網路上使用的名稱。",
+        "Full name": "全名",
+        "Identity": "身分",
+        "If you encrypt the disk, the password cannot have accents or the letter c-cedilla": "如果加密磁碟，密碼不能包含帶重音符號的字元或字母 ç",
+        "Installation completed": "安裝完成",
+        "Installation interrupted": "安裝已中斷",
+        "Installation requirements need attention": "安裝條件需要注意",
+        "Log in automatically": "自動登入",
+        "Login name": "登入名稱",
+        "Mouse or ↑ ↓ / W S to move • Space to pause": "滑鼠或 ↑ ↓ / W S 移動 • 空白鍵暫停",
+        "Move the left paddle with the mouse or the up and down arrow keys. Press Space to pause or resume.": "用滑鼠或上下方向鍵移動左側球拍。按空白鍵暫停或繼續。",
+        "Nothing will be changed until you review and confirm.": "在您檢查並確認之前，不會變更任何內容。",
+        "Password": "密碼",
+        "Pause": "暫停",
+        "Paused": "已暫停",
+        "Pause or resume the Pong game": "暫停或繼續 Pong 遊戲",
+        "Pong game": "Pong 遊戲",
+        "Press Space or use the button below to continue": "按空白鍵或使用下方的按鈕繼續",
+        "Repeat password": "再次輸入密碼",
+        "Repeat root password": "再次輸入 root 密碼",
+        "Require a strong password": "要求使用強密碼",
+        "Restart system": "重新啟動系統",
+        "Resume": "繼續",
+        "Review": "檢查",
+        "Root password": "root 密碼",
+        "Security": "安全性",
+        "Show passwords": "顯示密碼",
+        "The installation log is available in the live user's home directory and in /var/log/installation.log on the installed system.": "安裝記錄位於 live 使用者的家目錄中，以及已安裝系統的 /var/log/installation.log。",
+        "The installer encountered an error and will close. Review the error details before trying again.": "安裝程式發生錯誤，即將關閉。請在重試之前查看錯誤詳細資訊。",
+        "The passwords do not match.": "兩次輸入的密碼不一致。",
+        "The passwords match.": "兩次輸入的密碼一致。",
+        "Time zone: %1": "時區：%1",
+        "User account": "使用者帳號",
+        "Use the user password for the administrator account": "為管理員帳號使用該使用者的密碼",
+        "You can still go back and adjust any choice before starting the installation.": "在安裝開始之前，您仍可以返回並修改任何選擇。",
+        "You may restart into the new system or continue using the live environment.": "您可以重新啟動進入新系統，也可以繼續使用 live 環境。",
+        "Your name": "您的姓名"
     }
 }
 
+// The catalogs were written per language, before the wizard moved to full
+// locales: "pt" is the Brazilian text and "zh" Simplified Chinese. Calamares
+// asks with Qt.locale().name ("pt_BR", "zh_CN"), so the full locales the
+// package ships resolve to their own catalog, and any other one to its
+// language.
+byLanguage["pt_BR"] = byLanguage["pt"]
+byLanguage["zh_CN"] = byLanguage["zh"]
+
 function translate(source, localeKey) {
-    var name = String(localeKey).split("|")[0].toLowerCase().replace("-", "_")
-    var language = byLanguage[name] !== undefined ? name : name.split("_")[0]
+    var name = String(localeKey).split("|")[0].split(/[.@]/)[0].replace("-", "_")
+    var parts = name.split("_")
+    var base = parts[0].toLowerCase()
+    var full = parts.length > 1 ? base + "_" + parts[1].toUpperCase() : base
+    var language = byLanguage[full] !== undefined ? full : base
     var catalog = byLanguage[language]
     if (catalog !== undefined && catalog[source] !== undefined) return catalog[source]
     return source

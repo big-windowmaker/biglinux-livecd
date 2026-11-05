@@ -52,6 +52,11 @@ def setup_translations():
 
 def load_custom_css():
     """Load custom CSS for application-wide styling."""
+    # Big WindowMaker (set by calamares-biglinux): every window there is an
+    # opaque NeXTSTEP panel, and the translucent background let the wallpaper
+    # show through the launcher. The theme's own background is used instead.
+    if os.environ.get("BIGLINUX_WINDOW_MAKER") == "1":
+        return
     css_provider = Gtk.CssProvider()
     # The CSS rule to make the window background slightly transparent.
     # This creates a "frosted glass" effect on desktops that support it.

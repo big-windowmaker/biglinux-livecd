@@ -13,7 +13,7 @@ from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk, Pango
 from logging_config import get_logger
 from services import SystemService
 from translations import _
-from ui.base_view import BaseItemView
+from ui.base_view import BaseItemView, ItemFlowBoxChild
 
 logger = get_logger()
 
@@ -57,14 +57,20 @@ class ThemeListItem(GObject.Object):
 class ThemeView(BaseItemView):
     __gtype_name__ = "ThemeView"
     sig_theme_selected = GObject.Signal("theme-selected", arg_types=[str])
+    # Window Maker only: the light/dark card under the pointer or the
+    # keyboard, so the wizard can show that look before it is chosen.
+    sig_theme_previewed = GObject.Signal("theme-previewed", arg_types=[str])
 
     def __init__(
         self,
         system_service: SystemService,
         runtime_state: ThemeRuntimeState,
         simplified_mode: bool = False,
+        windowmaker_variant: str | None = None,
         **kwargs,
     ):
+        # The variant the wizard shows when it wears the Window Maker look.
+        self.windowmaker_variant = windowmaker_variant if simplified_mode else None
         self.jamesdsp_switch: Gtk.Switch | None = None
         self.contrast_switch: Gtk.Switch | None = None
         self._system_service = system_service  # Store reference for ICC callbacks
@@ -332,10 +338,43 @@ class ThemeView(BaseItemView):
 
     # --- Implementation of BaseItemView abstract methods ---
 
+    def _initial_child(self) -> Gtk.Widget | None:
+        """The card selected on arrival: the look on screen, for Window Maker."""
+        child = self.flow_box.get_first_child()
+        if self.windowmaker_variant is None:
+            return child
+        while child is not None:
+            if (
+                isinstance(child, ItemFlowBoxChild)
+                and getattr(child.item_data, "name", "") == self.windowmaker_variant
+            ):
+                return child
+            child = child.get_next_sibling()
+        return self.flow_box.get_first_child()
+
+    def _select_first_item(self):
+        child = self._initial_child()
+        if isinstance(child, Gtk.FlowBoxChild):
+            self.flow_box.select_child(child)
+            self.grab_focus()
+        return GLib.SOURCE_REMOVE
+
+    def _on_selection_changed(self, flow_box):
+        super()._on_selection_changed(flow_box)
+        if self.windowmaker_variant is None:
+            return
+        selected = flow_box.get_selected_children()
+        if not selected or not isinstance(selected[0], ItemFlowBoxChild):
+            return
+        name = getattr(selected[0].item_data, "name", "")
+        if name in ("light", "dark") and name != self.windowmaker_variant:
+            self.windowmaker_variant = name
+            self.sig_theme_previewed.emit(name)  # type: ignore[arg-type]
+
     def _select_first_and_announce(self):
         """Override to include JamesDSP state in announcement."""
-        first_child = self.flow_box.get_first_child()
-        if first_child:
+        first_child = self._initial_child()
+        if isinstance(first_child, Gtk.FlowBoxChild):
             self.flow_box.select_child(first_child)
             self.grab_focus()
         self._suppress_speak = False
@@ -375,9 +414,81 @@ class ThemeView(BaseItemView):
     def create_item_widget(self, item: GObject.Object):
         if not isinstance(item, ThemeListItem):
             raise TypeError("ThemeView requires a ThemeListItem")
+        if self.windowmaker_variant is not None:
+            return self._create_windowmaker_theme_widget(item)
         if self.simplified_mode:
             return self._create_simple_theme_widget(item)
         return self._create_full_theme_widget(item)
+
+    @staticmethod
+    def _create_windowmaker_theme_widget(item: ThemeListItem) -> Gtk.Box:
+        """A miniature Window Maker window in the look the card stands for.
+
+        Drawn with CSS (style-windowmaker.css), so it needs no screenshot and
+        always matches what the wizard switches to.
+        """
+        label_text = _("Dark Theme") if item.name == "dark" else _("Light Theme")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_can_focus(True)
+        box.add_css_class("theme-card")
+        box.set_size_request(300, 250)
+        box.update_property([Gtk.AccessibleProperty.LABEL], [label_text])
+        try:
+            box.set_cursor(Gdk.Cursor.new_from_name("pointer", None))
+        except Exception:
+            pass
+
+        preview = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            css_classes=["wm-preview", f"wm-preview-{item.name}"],
+            accessible_role=Gtk.AccessibleRole.PRESENTATION,
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.CENTER,
+            vexpand=True,
+        )
+        preview.set_size_request(240, 160)
+
+        titlebar = Gtk.CenterBox(css_classes=["wm-preview-titlebar"])
+        titlebar.set_start_widget(
+            Gtk.Box(css_classes=["wm-preview-button"], valign=Gtk.Align.CENTER)
+        )
+        titlebar.set_center_widget(
+            Gtk.Label(
+                label="Window Maker",
+                accessible_role=Gtk.AccessibleRole.PRESENTATION,
+            )
+        )
+        titlebar.set_end_widget(
+            Gtk.Box(css_classes=["wm-preview-button"], valign=Gtk.Align.CENTER)
+        )
+        preview.append(titlebar)
+
+        body = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10,
+            css_classes=["wm-preview-body"],
+            vexpand=True,
+        )
+        field = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, css_classes=["wm-preview-field"]
+        )
+        for width in (150, 110, 170):
+            line = Gtk.Box(css_classes=["wm-preview-line"], halign=Gtk.Align.START)
+            line.set_size_request(width, -1)
+            field.append(line)
+        body.append(field)
+        buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END, valign=Gtk.Align.END)
+        buttons.append(Gtk.Box(css_classes=["wm-preview-push"]))
+        buttons.append(Gtk.Box(css_classes=["wm-preview-push"]))
+        body.append(buttons)
+        preview.append(body)
+        preview.append(Gtk.Box(css_classes=["wm-preview-resizebar"]))
+        box.append(preview)
+
+        label = Gtk.Label(label=label_text, halign=Gtk.Align.CENTER)
+        label.add_css_class("title-4")
+        box.append(label)
+        return box
 
     @staticmethod
     def _create_simple_theme_widget(item: ThemeListItem) -> Gtk.Box:

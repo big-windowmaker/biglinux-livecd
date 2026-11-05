@@ -9,6 +9,9 @@ Comment=Calamares — System Installer
 Icon=icon-big-hd-install
 Terminal=false
 StartupNotify=true
+# Calamares (Qt) opens with WM_CLASS "calamares": docks and task bars group
+# it with this launcher and show its icon.
+StartupWMClass=calamares
 Categories=Qt;System;
 
 Name[ar]=تثبيت النظام 

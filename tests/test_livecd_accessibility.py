@@ -275,3 +275,61 @@ def test_every_wizard_path_asks_before_offering_it() -> None:
     # compositor is least reliable.
     source = STARTBIGLIVE.read_text(encoding="utf-8")
     assert source.count("_claim_setup_wizard") == 4, source.count("_claim_setup_wizard")
+
+
+def _wizard_renderer(tmp_path: Path, *, virtual: bool, amber: bool, preset: str) -> str:
+    """The wizard environment _select_wizard_renderer leaves behind."""
+    result = _run(
+        f"""
+set -euo pipefail
+_log() {{ :; }}
+systemd-detect-virt() {{ [[ $VIRTUAL == 1 ]]; }}
+compgen() {{ [[ $AMBER == 1 ]] && echo /var/lib/pacman/local/mesa-amber-1; }}
+{_helpers()}
+wizard_environment=("AT_SPI_BUS_ADDRESS=unix:path=/run/a11y")
+_select_wizard_renderer
+printf '%s\\n' "${{wizard_environment[@]}}"
+printf 'exported=%s\\n' "${{GSK_RENDERER:-}}"
+""",
+        {
+            "VIRTUAL": "1" if virtual else "0",
+            "AMBER": "1" if amber else "0",
+            "GSK_RENDERER": preset,
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+def test_the_wizard_renders_in_software_in_virtual_machines(tmp_path: Path) -> None:
+    # GTK 4 tried Vulkan in VMs and logged radv/vkEnumeratePhysicalDevices
+    # errors before falling back, on every wizard start.
+    output = _wizard_renderer(tmp_path, virtual=True, amber=False, preset="")
+    assert "AT_SPI_BUS_ADDRESS=unix:path=/run/a11y" in output
+    assert "GSK_RENDERER=cairo" in output
+    # Handed to the wizard only, never exported to the session that follows.
+    assert "exported=\n" in output
+
+
+def test_the_wizard_renders_in_software_on_mesa_amber(tmp_path: Path) -> None:
+    output = _wizard_renderer(tmp_path, virtual=False, amber=True, preset="")
+    assert "GSK_RENDERER=cairo" in output
+
+
+def test_the_wizard_keeps_the_gpu_renderer_on_real_hardware(tmp_path: Path) -> None:
+    output = _wizard_renderer(tmp_path, virtual=False, amber=False, preset="")
+    assert "GSK_RENDERER" not in output.replace("exported=", "")
+
+
+def test_a_renderer_the_session_chose_wins(tmp_path: Path) -> None:
+    output = _wizard_renderer(tmp_path, virtual=True, amber=True, preset="ngl")
+    assert "GSK_RENDERER=cairo" not in output
+    assert "exported=ngl" in output
+
+
+def test_the_x11_wizard_gets_the_renderer_after_its_environment() -> None:
+    source = STARTBIGLIVE.read_text(encoding="utf-8")
+    assert (
+        "\t\t_enable_accessibility\n\t\t_select_wizard_renderer\n"
+        '\t\tenv "${wizard_environment[@]}" python /usr/share/biglinux/livecd/main.py'
+    ) in source
