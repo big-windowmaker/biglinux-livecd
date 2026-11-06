@@ -159,6 +159,13 @@ into `/usr/share/locale`. `msgfmt --check-format` runs during the build, so a
 catalog whose placeholders do not match its source fails the package rather than
 the running program.
 
+## Credits
+
+Big WindowMaker development:
+
+- **Rafael Ruscher** — <rruscher@gmail.com.br>
+- **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
+
 ## License
 
 GPL-3.0-only, with CC0-1.0 material. See [LICENSE](LICENSE).
