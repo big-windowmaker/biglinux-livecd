@@ -1,0 +1,143 @@
+/*
+ * Big WindowMaker Calamares theme (classic OPENSTEP: native Qt style, gray).
+ *
+ * Interactive widgets deliberately keep the active Qt style. This makes the
+ * QML shell and the QWidget partition page look like parts of one desktop app.
+ */
+
+#mainApp {
+    color: palette(window-text);
+    background-color: palette(window);
+}
+
+#mainApp QWidget,
+#mainApp QLabel {
+    color: palette(window-text);
+}
+
+#mainApp QLabel {
+    background-color: transparent;
+}
+
+/* The slideshow lives in a tab widget whose pane draws a 1px outline around
+ * the game. The QML already rounds its own corners. */
+#mainApp QTabWidget::pane {
+    border: none;
+}
+
+/* Keep operational pages neutral. Do not redraw native controls. */
+#mainApp #partitionPage,
+#mainApp #Page_UserSetup,
+#mainApp #summaryStep,
+#mainApp #finishedPage {
+    background-color: palette(window);
+}
+
+/* Small hierarchy improvements for the QWidget summary page. */
+#mainApp #summaryTitle {
+    padding: 6px 12px 9px 12px;
+    color: palette(mid);
+    background-color: transparent;
+    font-size: 13px;
+}
+
+#mainApp #summaryItemTitle {
+    margin: 6px 12px 2px 12px;
+    color: palette(window-text);
+    background-color: transparent;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+#mainApp #summaryItemBody {
+    margin: 0 12px 4px 24px;
+    padding: 8px 10px;
+    color: palette(text);
+    background-color: palette(base);
+    border: 1px solid palette(mid);
+    border-radius: 4px;
+}
+
+/* Keep installation progress compact, clear and consistent with the theme.
+ * QSS paints the percentage in one color over both the trough and the chunk,
+ * so both backgrounds are fixed dark brand blues that white text passes on. */
+#mainApp QProgressBar {
+    min-height: 20px;
+    max-height: 20px;
+    margin: 4px 0 4px 0;
+    color: #FFFFFF;
+    border: 1px solid palette(mid);
+    border-radius: 10px;
+    background-color: #1E2936;
+    text-align: center;
+}
+
+#mainApp QProgressBar::chunk {
+    margin: 1px;
+    border-radius: 8px;
+    background-color: #0E7490;
+}
+
+/* The disk passphrase field belongs to the partition module, so its labels and
+ * layout are not ours to change. Its container is a plain QWidget subclass
+ * without WA_StyledBackground, which means a background or a border set on the
+ * class itself is never painted; what does take effect is styling the standard
+ * widgets inside it. */
+EncryptWidget QCheckBox {
+    padding: 4px 0;
+    font-weight: bold;
+}
+
+EncryptWidget QLineEdit {
+    min-height: 26px;
+    padding: 3px 8px;
+    color: palette(text);
+    background-color: palette(base);
+    border: 1px solid palette(mid);
+    border-radius: 6px;
+}
+
+EncryptWidget QLineEdit:focus {
+    border: 1px solid palette(highlight);
+}
+
+/* Calamares builds its confirmations - cancelling the install, closing during
+ * it - as plain QMessageBox instances with no object name of its own, so this
+ * is the only handle on them. They came up cramped and with small buttons
+ * beside the roomy QML pages, which is what made them look out of place.
+ * CalamaresWindow applies this stylesheet to itself, and the dialogs are its
+ * children, so these rules reach them. */
+QMessageBox {
+    background-color: palette(window);
+}
+
+QMessageBox QLabel {
+    color: palette(window-text);
+    background-color: transparent;
+    font-size: 14px;
+}
+
+/* Qt gives its own children these names; the text one carries the message. */
+QMessageBox QLabel#qt_msgbox_label {
+    /* Wide enough for the longest of these messages to keep the two
+     * lines its own text is written as, instead of wrapping again. */
+    min-width: 460px;
+    padding: 22px 26px 18px 14px;
+}
+
+QMessageBox QLabel#qt_msgboxex_icon_label {
+    padding: 20px 4px 10px 20px;
+}
+
+QMessageBox QPushButton {
+    /* Calamares puts a tick and a cross on these buttons, which repeat what
+     * the labels already say and are the only icon-theme artwork in the
+     * dialog, so they were the least consistent part of it.
+     *
+     * Nothing else is set here on purpose. Giving these buttons a size or a
+     * padding makes the widget style draw its default-button frame around the
+     * box while the button paints inside it, which showed up as a second
+     * rectangle around the default button. Leaving the geometry alone keeps
+     * them identical to every other button the style draws. */
+    icon-size: 0px;
+}

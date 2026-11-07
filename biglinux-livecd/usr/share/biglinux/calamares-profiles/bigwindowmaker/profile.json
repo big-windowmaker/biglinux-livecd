@@ -1,0 +1,8 @@
+{
+  "id": "bigwindowmaker",
+  "display_name": "Big WindowMaker",
+  "branding": "bigwindowmaker",
+  "wizard_logo": "branding/bigwindowmaker/logo.svg",
+  "netinstall": false,
+  "warn_old_release": false
+}

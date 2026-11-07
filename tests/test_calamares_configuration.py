@@ -123,13 +123,14 @@ def test_calamares_branding_uses_current_os_release_substitutions() -> None:
         (REPOSITORY / "biglinux-livecd").glob("usr/share/**/branding/*/branding.desc")
     )
 
-    # One per product; there used to be a fourth, an incomplete copy of the
-    # biglinux branding under usr/share/calamares that nothing loaded.
-    assert len(branding_files) == 3
+    # One per product (there used to be another, an incomplete copy of the
+    # biglinux branding under usr/share/calamares that nothing loaded).
+    assert len(branding_files) == 4
     expected_product_names = {
         "biglinux": "BigLinux",
         "xivastudio": "XivaStudio",
         "bigcommunity": "BigCommunity",
+        "bigwindowmaker": "Big WindowMaker",
     }
     for branding_file in branding_files:
         branding = branding_file.read_text(encoding="utf-8")
@@ -251,6 +252,7 @@ def test_profiles_mount_target_virtual_filesystems() -> None:
     assert {path.parents[1].name for path in mount_files} == {
         "bigcommunity",
         "biglinux",
+        "bigwindowmaker",
         "xivastudio",
     }
 
