@@ -7,7 +7,8 @@ welcomeStyleCalamares: false
 welcomeExpandingLogo: false
 
 windowExpanding: normal
-windowSize: 1024px,680px
+# Cabe acima do Dock com abas (110 px) numa tela de 768 de altura.
+windowSize: 1000px,600px
 windowPlacement: center
 
 sidebar: qml,left

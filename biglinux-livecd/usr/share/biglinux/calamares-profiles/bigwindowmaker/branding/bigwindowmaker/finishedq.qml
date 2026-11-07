@@ -177,9 +177,11 @@ Page {
                 text: root.tr("Restart system")
                 onClicked: config.doRestart(true)
 
+                // Window Maker's button: gray, raised, pressed in when held. The
+                // theme's highlight is white in OPENSTEP, so no white text on it.
                 contentItem: Label {
                     text: restartButton.text
-                    color: "white"
+                    color: root.palette.buttonText
                     font.pixelSize: 15
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignHCenter
@@ -187,17 +189,20 @@ Page {
                 }
 
                 background: Rectangle {
-                    radius: 10
-                    color: restartButton.down
-                        ? Qt.darker(root.palette.highlight, 1.18)
-                        : restartButton.hovered
-                            ? Qt.lighter(root.palette.highlight, 1.08)
-                            : root.palette.highlight
-                    border.width: restartButton.visualFocus ? 2 : 0
-                    border.color: Qt.lighter(root.palette.highlight, 1.5)
+                    radius: 0
+                    color: restartButton.down ? root.palette.mid : root.palette.button
+                    border.width: restartButton.visualFocus ? 2 : 1
+                    border.color: root.palette.shadow
 
-                    Behavior on color {
-                        ColorAnimation { duration: 120 }
+                    Rectangle {
+                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 1 }
+                        height: 1
+                        color: restartButton.down ? root.palette.shadow : root.palette.light
+                    }
+                    Rectangle {
+                        anchors { left: parent.left; top: parent.top; bottom: parent.bottom; margins: 1 }
+                        width: 1
+                        color: restartButton.down ? root.palette.shadow : root.palette.light
                     }
                 }
             }

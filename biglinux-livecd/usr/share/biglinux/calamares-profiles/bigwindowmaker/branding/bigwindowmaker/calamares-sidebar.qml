@@ -38,21 +38,25 @@ Rectangle {
         NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
     }
 
-    // The panel is a dark surface on purpose: it separates navigation from
-    // the content area while the window keeps the desktop background color.
-    readonly property color panelBackground: "#1E2936"
-    readonly property color panelBorder: Qt.rgba(1, 1, 1, 0.10)
-    readonly property color trackDone: "#22D3EE"
+    // Big WindowMaker (OPENSTEP): the panel is a raised gray surface in the
+    // colors of the Qt theme, with straight corners, like Window Maker's.
+    readonly property color panelBackground: palette.button
+    readonly property color panelBorder: palette.shadow
+    readonly property color trackDone: palette.highlight
     readonly property color currentTint: Qt.rgba(
         palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.22
     )
     readonly property color currentOutline: Qt.rgba(
         palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.55
     )
-    readonly property color hairline: Qt.rgba(1, 1, 1, 0.16)
-    readonly property color primaryText: "#FFFFFF"
-    readonly property color secondaryText: Qt.rgba(1, 1, 1, 0.74)
-    readonly property color mutedText: Qt.rgba(1, 1, 1, 0.50)
+    readonly property color hairline: palette.mid
+    readonly property color primaryText: palette.buttonText
+    readonly property color secondaryText: Qt.rgba(
+        palette.buttonText.r, palette.buttonText.g, palette.buttonText.b, 0.80
+    )
+    readonly property color mutedText: Qt.rgba(
+        palette.buttonText.r, palette.buttonText.g, palette.buttonText.b, 0.55
+    )
 
     LayoutMirroring.enabled:
         Qt.application.layoutDirection === Qt.RightToLeft
@@ -97,12 +101,8 @@ Rectangle {
     // Stacked outlines stand in for a drop shadow: the live session renders
     // QML in software, where shader based effects are unavailable.
     Repeater {
-        model: [
-            { inset: -4, alpha: 0.020, radius: 26 },
-            { inset: -3, alpha: 0.028, radius: 25 },
-            { inset: -2, alpha: 0.038, radius: 24 },
-            { inset: -1, alpha: 0.050, radius: 23 }
-        ]
+        // No soft shadow: Window Maker's panels have a hard relief.
+        model: []
 
         Rectangle {
             anchors.fill: panel
@@ -123,7 +123,7 @@ Rectangle {
         anchors.rightMargin: 6
         anchors.topMargin: 14
         anchors.bottomMargin: 14
-        radius: 22
+        radius: 0
         color: root.panelBackground
         border.width: 1
         border.color: root.panelBorder
@@ -137,6 +137,7 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: panel.radius / 2
             source: "visuals/sidebar-pattern.svg"
+            visible: false
             fillMode: Image.Stretch
             // Rasterize the gradients at their final size: scaling a smaller
             // pixmap leaves visible seams in the software renderer.
@@ -150,9 +151,9 @@ Rectangle {
             anchors.top: parent.top
             anchors.topMargin: 1
             anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 2 * parent.radius
+            width: parent.width - 2
             height: 1
-            color: Qt.rgba(1, 1, 1, 0.10)
+            color: palette.light
         }
 
         ColumnLayout {
@@ -233,7 +234,7 @@ Rectangle {
                         anchors.fill: parent
                         anchors.topMargin: 3
                         anchors.bottomMargin: 3
-                        radius: 13
+                        radius: 0
                         visible: stepDelegate.isCurrent
                         color: root.currentTint
                         border.width: 1
@@ -277,7 +278,8 @@ Rectangle {
                                 anchors.centerIn: parent
                                 width: root.markerSize
                                 height: root.markerSize
-                                radius: width / 2
+                                // Square, like Window Maker's buttons.
+                                radius: 2
                                 color: stepDelegate.isCurrent
                                     ? palette.highlight
                                     : stepDelegate.isCompleted
@@ -287,7 +289,7 @@ Rectangle {
                                             palette.highlight.b,
                                             0.85
                                         )
-                                        : Qt.rgba(1, 1, 1, 0.06)
+                                        : palette.button
                                 border.width: stepDelegate.isCurrent
                                     || stepDelegate.isCompleted ? 0 : 1
                                 border.color: root.hairline
