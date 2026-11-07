@@ -96,10 +96,16 @@ def test_no_bigcommunity_text_left() -> None:
 
 
 def test_bigcommunity_profile_untouched() -> None:
-    profile = json.loads((PROFILES / "bigcommunity/profile.json").read_text(encoding="utf-8"))
+    profile = json.loads(
+        (PROFILES / "bigcommunity/profile.json").read_text(encoding="utf-8")
+    )
     assert profile["id"] == "bigcommunity"
-    assert yaml.safe_load((COMMUNITY / "branding.desc").read_text(encoding="utf-8"))[
-        "strings"]["productName"] == "BigCommunity"
+    assert (
+        yaml.safe_load((COMMUNITY / "branding.desc").read_text(encoding="utf-8"))[
+            "strings"
+        ]["productName"]
+        == "BigCommunity"
+    )
 
 
 def test_configuration_is_valid_yaml() -> None:
