@@ -25,9 +25,12 @@ Calamares with the right profile and environment, and
 `/usr/share/biglinux/calamares` is the GTK wizard that collects the installation
 options before it starts.
 
-**Calamares profiles** for the three products built from this base — `biglinux`,
-`bigcommunity` and `xivastudio` — each with its own `settings.conf`, module
-configuration and branding.
+**Calamares profiles** for the four products built from this base — `biglinux`,
+`bigcommunity`, `xivastudio` and `bigwindowmaker` — each with its own
+`settings.conf`, module configuration and branding. `bigwindowmaker` (the Big
+WindowMaker image) has its own logo, welcome illustration, classic OPENSTEP
+slideshow (`BigWindowMakerSlides.qml`) and gray sidebar; its modules started as
+a copy of `bigcommunity`'s and are kept in step by hand.
 
 **Calamares modules** under `usr/lib/calamares/modules`:
 

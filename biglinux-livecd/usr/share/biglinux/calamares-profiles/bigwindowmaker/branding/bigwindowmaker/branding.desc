@@ -1,0 +1,43 @@
+---
+componentName: bigwindowmaker
+
+# The main installer window remains native. QML provides the shell and the
+# supported view modules; partitioning keeps the official Qt Widgets module.
+welcomeStyleCalamares: false
+welcomeExpandingLogo: false
+
+windowExpanding: normal
+windowSize: 1024px,680px
+windowPlacement: center
+
+sidebar: qml,left
+navigation: qml,bottom
+
+strings:
+    productName: Big WindowMaker
+    shortProductName: Big WindowMaker
+    version: "${BUILD_ID}"
+    shortVersion: "${BUILD_ID}"
+    versionedName: "${PRETTY_NAME}"
+    shortVersionedName: "Big WindowMaker ${BUILD_ID}"
+    bootloaderEntryName: Big
+    productUrl: https://github.com/big-windowmaker
+    supportUrl: https://github.com/big-windowmaker/big-wm/issues
+    knownIssuesUrl: https://github.com/big-windowmaker/big-wm/issues
+    releaseNotesUrl: https://github.com/big-windowmaker/build-iso/releases
+    donateUrl: ""
+
+images:
+    productLogo: "logo.svg"
+    productIcon: "/usr/share/icons/hicolor/scalable/apps/icon-big-hd-install.svg"
+    # Static fallback used only if the traditional welcome module is restored.
+    productWelcome: "welcome-illustration.svg"
+
+slideshow: "BigWindowMakerSlides.qml"
+slideshowAPI: 2
+
+style:
+    SidebarBackground: "#AEAAAE"
+    SidebarText: "#000000"
+    SidebarBackgroundCurrent: "#525252"
+    SidebarTextCurrent: "#FFFFFF"
