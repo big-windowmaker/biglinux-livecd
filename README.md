@@ -166,7 +166,7 @@ the running program.
 
 Big WindowMaker development:
 
-- **Rafael Ruscher** — <rruscher@gmail.com.br>
+- **Rafael Ruscher** — <rruscher@gmail.com>
 - **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
 
 ## License
