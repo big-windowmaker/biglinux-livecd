@@ -1,3 +1,102 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/big-windowmaker/big-wm/main/themes/logo/big-wm.svg" width="110" alt="Logo do Big WindowMaker">
+</p>
+
+<h1 align="center">biglinux-livecd — edição Big WindowMaker</h1>
+
+<p align="center">
+  <b>A sessão live e o instalador do BigLinux, com o perfil do Big WindowMaker.</b><br>
+  Fork de <a href="https://github.com/biglinux/biglinux-livecd">biglinux/biglinux-livecd</a>; as mudanças são propostas ao projeto original.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--only-blue" alt="Licença GPL-3.0-only">
+  <a href="https://github.com/biglinux/biglinux-livecd"><img src="https://img.shields.io/badge/upstream-BigLinux-2d85c6" alt="Upstream: BigLinux"></a>
+  <img src="https://img.shields.io/badge/ISO-Alpha-8a2be2" alt="ISO Alpha">
+</p>
+
+<p align="center">
+  <a href="#o-que-este-fork-muda">O que muda</a> ·
+  <a href="#capturas">Capturas</a> ·
+  <a href="#como-é-usado">Como é usado</a> ·
+  <a href="#contribuir">Contribuir</a> ·
+  <a href="#créditos-e-agradecimentos">Créditos</a> ·
+  <a href="#biglinux-livecd">Documentação original (English)</a>
+</p>
+
+## O que este fork muda
+
+O `biglinux-livecd` é o que roda entre ligar o pendrive e ter o sistema
+instalado: a sessão live, o assistente de idioma, teclado e aparência, e o
+assistente do Calamares. Este fork acrescenta, sem mexer nas outras edições:
+
+- **Perfil `bigwindowmaker`** do instalador: nome, logomarca, ilustração de
+  boas-vindas, apresentação e cores do Big WindowMaker
+  (`calamares-profiles/bigwindowmaker/`).
+- **Sessão live do Window Maker** (X11) e o login automático na sessão certa.
+- **Sobre pelo perfil da edição**: o `profile.json` pode trazer um bloco
+  `about`; no perfil `bigwindowmaker`, "Instalador do Big WindowMaker", com os
+  mantenedores, o BigLinux creditado como projeto original e a versão do
+  pacote instalado. BigLinux, BigCommunity e XivaStudio continuam com o Sobre
+  do BigLinux (teste `tests/test_about_profile.py`).
+
+## Capturas
+
+<p align="center">
+  <img src="docs/screenshots/instalador-sobre.png" width="560" alt="Sobre do assistente de instalação no perfil Big WindowMaker: Instalador do Big WindowMaker, com Detalhes, Dúvidas de suporte, Relatar um problema, Créditos, Aviso legal e Reconhecimento">
+</p>
+
+Na ISO de teste (Alpha, máquina virtual, 06/11/2026):
+
+| | |
+|---|---|
+| ![Assistente da sessão live: idioma, teclado e aparência](https://raw.githubusercontent.com/big-windowmaker/.github/main/profile/images/iso-assistente-live.png) | ![Calamares: particionamento](https://raw.githubusercontent.com/big-windowmaker/.github/main/profile/images/iso-calamares-particoes.png) |
+| Assistente da sessão live | Instalador: particionamento |
+| ![Calamares: usuário](https://raw.githubusercontent.com/big-windowmaker/.github/main/profile/images/iso-calamares-usuario.png) | ![Calamares: resumo antes de instalar](https://raw.githubusercontent.com/big-windowmaker/.github/main/profile/images/iso-calamares-resumo.png) |
+| Instalador: usuário | Instalador: resumo |
+
+## Como é usado
+
+Este pacote não é instalado à mão: ele vai na ISO do Big WindowMaker. O
+pacote é compilado pelo
+[big-windowmaker/packages](https://github.com/big-windowmaker/packages/tree/main/biglinux-livecd)
+e a ISO pelo [build-iso](https://github.com/big-windowmaker/build-iso). Para
+testar: baixe a ISO em
+[build-iso/releases](https://github.com/big-windowmaker/build-iso/releases) e
+inicie numa máquina virtual. Testes do repositório:
+
+```sh
+python -m pytest tests          # perfis, configuração do Calamares, Sobre, traduções
+ruff check . && ruff format --check .
+```
+
+## Contribuir
+
+Mudanças que valem para todas as edições devem ir primeiro ao
+[projeto original](https://github.com/biglinux/biglinux-livecd); aqui ficam
+as do Big WindowMaker e as que ainda esperam o upstream. Problemas da ISO:
+[big-windowmaker/build-iso](https://github.com/big-windowmaker/build-iso/issues).
+Guia: [CONTRIBUTING](https://github.com/big-windowmaker/.github/blob/main/CONTRIBUTING.md).
+
+## Créditos e agradecimentos
+
+**Projeto original — BigLinux:** Bruno Gonçalves
+([@bigbruno](https://github.com/bigbruno)), Tales A. Mendonça
+([@talesam](https://github.com/talesam)),
+([@eltonfabricio10](https://github.com/eltonfabricio10)),
+[@LordDan78](https://github.com/LordDan78) e a equipe do BigLinux.
+
+**Mantenedores do Big WindowMaker:** Rafael Ruscher <rruscher@gmail.com> e
+Barnabé Di Kartola <barnabedikartola@gmail.com>.
+
+**Agradecimentos especiais:** Alfredo Kojima (pelo
+[Window Maker](https://www.windowmaker.org/)), Philipp Kaeser (pelo
+[wlmaker](https://github.com/phkaeser/wlmaker)), Bruno Gonçalves (pelo
+[BigLinux](https://www.biglinux.com.br/)) e Tales A. Mendonça (pela
+[BigCommunity](https://communitybig.org)).
+
+---
+
 # biglinux-livecd
 
 BigLinux live-session setup and Calamares installer integration.
@@ -60,8 +159,8 @@ each one. A missing file means "not selected": `copy_live_config` skips it.
 `/run/biglinux-live/` is a different directory, used only by the Calamares and
 integrity helpers — not for the wizard's choices.
 
-See [LIVE-STATE.md](LIVE-STATE.md) for the complete producer, consumer, safety,
-and lifecycle contract.
+The map of every setting to its file is
+[`usr/lib/biglinux-livecd/live-state`](biglinux-livecd/usr/lib/biglinux-livecd/live-state).
 
 ## Live profiles
 
@@ -164,10 +263,9 @@ the running program.
 
 ## Credits
 
-Big WindowMaker development:
-
-- **Rafael Ruscher** — <rruscher@gmail.com>
-- **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
+Original project: BigLinux (Bruno Gonçalves, Tales A. Mendonça and the
+BigLinux team). Big WindowMaker edition: Rafael Ruscher
+<rruscher@gmail.com> and Barnabé Di Kartola <barnabedikartola@gmail.com>.
 
 ## License
 
