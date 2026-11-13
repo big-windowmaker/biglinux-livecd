@@ -51,8 +51,8 @@ def test_entry_point_and_files() -> None:
     assert 'source: "neurodefender/GameRoot.qml"' in slides
     assert "asynchronous: true" in slides
     assert "active: root.activatedInCalamares" in slides
-    for name in ("GameRoot.qml", "RetroButton.qml", "SoundBank.qml",
-                 "config.js", "engine.js", "render.js", "strings.js"):
+    for name in ("GameRoot.qml", "RetroButton.qml", "SoundBank.qml", "PixelText.qml", "PixelMenu.qml",
+                 "art.js", "config.js", "engine.js", "render.js", "strings.js"):
         assert (GAME / name).is_file(), name
     # every relative import and every sound resolves
     for path in GAME.glob("*.qml"):

@@ -100,6 +100,7 @@ function create(seed) {
         events: [],
         banner: "", bannerArg: "", bannerT: 0,
         lowFx: false,
+        names: null,                  // capsule names in the player's language (set by the UI)
         shake: 0,
         flashT: 0
     };
@@ -116,10 +117,10 @@ function setBanner(g, key, arg, t) {
 
 // mode: "play" or "demo"; sector: 0..8 (the demo starts anywhere)
 function startGame(g, mode, seed, sector) {
-    var best = g.best, seen = g.seen, achieved = g.achieved, lowFx = g.lowFx;
+    var best = g.best, seen = g.seen, achieved = g.achieved, lowFx = g.lowFx, names = g.names;
     var fresh = create(seed);
     for (var k in fresh) g[k] = fresh[k];
-    g.best = best; g.seen = seen; g.achieved = achieved; g.lowFx = lowFx;
+    g.best = best; g.seen = seen; g.achieved = achieved; g.lowFx = lowFx; g.names = names;
     g.mode = mode;
     g.sector = sector || 0;
     var p = g.p;
@@ -835,7 +836,7 @@ function collect(g, u) {
     case "repair": p.energy = Math.min(C.player.energy, p.energy + C.weapons.repair); break;
     case "life": if (p.lives < C.player.maxLives) p.lives++; else addScore(g, 2000, p.x, p.y - 12, "#FFD166"); break;
     }
-    floatText(g, p.x, p.y - 14, u.type.toUpperCase(), "#39FF88");
+    floatText(g, p.x, p.y - 14, (g.names && g.names[u.type]) || u.type.toUpperCase(), "#39FF88");
     emit(g, "sfx:powerup");
     emit(g, "pickup:" + u.type);
 }

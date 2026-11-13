@@ -65,7 +65,7 @@ Item {
             verify(keys.activeFocus);
             keyClick(Qt.Key_Return);
             compare(game().screen, "play");
-            wait(2600);                                 // the sector banner: no shooting yet
+            tryVerify(() => game().g.phase !== "sectorIntro", 6000);   // the sector banner: no shooting yet
             const x0 = game().g.p.x;
             keyPress(Qt.Key_Right);
             wait(400);
@@ -87,7 +87,7 @@ Item {
         function test_04_mouse_fires_and_bombs() {
             activate();
             game().startPlay();
-            wait(2600);
+            tryVerify(() => game().g.phase !== "sectorIntro", 6000);   // no shooting during the sector banner
             const keys = findChild(game(), "neurodefenderKeys");
             const shots = game().g.stats.shots;
             mousePress(keys, keys.width / 2, keys.height - 10, Qt.LeftButton);
@@ -141,8 +141,7 @@ Item {
             activate();
             game().titleIdle = 100;
             tryVerify(() => game().screen === "demo", 1000);
-            wait(3500);                                 // its sector banner, then the battle
-            verify(game().g.stats.shots > 0, "the demo pilot plays");
+            tryVerify(() => game().g.stats.shots > 0, 8000, "the demo pilot plays");
             keyClick(Qt.Key_Return);
             compare(game().screen, "play", "Enter takes over from the demo");
         }
@@ -154,7 +153,7 @@ Item {
                 const gm = game();
                 verify(gm.arenaScale > 0);
                 verify(320 * gm.arenaScale + 4 <= gm.width, "arena width fits " + size);
-                verify(240 * gm.arenaScale + 4 + 22 <= gm.height, "arena height fits " + size);
+                verify(gm.screenH * gm.arenaScale + 8 + 20 <= gm.height, "screen with HUD fits " + size);
                 slides.onLeave();
             }
             host.width = 810; host.height = 470;

@@ -8,9 +8,11 @@ Ficam em
 | Arquivo | Papel |
 |---|---|
 | `BigWindowMakerSlides.qml` | Ponto de entrada do `branding.desc` (`slideshow`, `slideshowAPI: 2`). Mostra a apresentação estática do Big WindowMaker e carrega o jogo. |
-| `neurodefender/GameRoot.qml` | Janela OPENSTEP do jogo, HUD, telas (título, demonstração, pausa, ajuda, banco de nanobots, fim de jogo), teclado, mouse e o laço. |
+| `neurodefender/GameRoot.qml` | Gabinete do jogo (painéis laterais e tela), menus, teclado, mouse e o laço. |
 | `neurodefender/engine.js` | As regras: estado, pools, máquina de estados dos nanobots, ondas, chefes, cápsulas, colisões, pontuação e piloto da demonstração. É JavaScript puro, sem tipos QML. |
-| `neurodefender/render.js` | Desenho no Canvas: sprites de pixel art escritos como texto, fonte de pixels 3×5 e fundo neural por setor. |
+| `neurodefender/render.js` | Desenho da arena: sprites de pixel art escritos como texto (a nave muda com a arma), avisos e tela de título. |
+| `neurodefender/art.js` | Fonte de pixels 5×7 com acentos, degradês dos títulos, HUD (placar no alto; vidas, bombas, energia, arma e combo embaixo), painéis laterais, telas de ajuda, banco de nanobots, pausa e fim de jogo. |
+| `neurodefender/PixelText.qml`, `PixelMenu.qml` | Texto e menu de fliperama na fonte de pixels, no mesmo tamanho de pixel da arena. |
 | `neurodefender/config.js` | Todos os números ajustáveis: velocidades, dano, durações, raridade das cápsulas, setores e chefes. |
 | `neurodefender/strings.js` | Textos em português e inglês. Um idioma novo é uma tabela nova com as mesmas chaves. |
 | `neurodefender/RetroButton.qml` | Botão quadrado com relevo. |
@@ -56,9 +58,10 @@ e então destrói o objeto (`Slideshow.cpp`).
 A barra de progresso (`exec-progress`), a mensagem de status
 (`exec-message`) e o botão do log são widgets nativos do Calamares, colocados
 abaixo da apresentação no `ExecutionViewStep`. O jogo não consegue cobri-los e
-não lê nem inventa porcentagens. A arena 4:3 (320×240 pixels lógicos) aumenta
-ou diminui para caber na área que o Calamares der, e o HUD passa para uma
-faixa no alto quando falta largura.
+não lê nem inventa porcentagens. A tela do jogo (320×264 pixels lógicos: arena
+4:3 de 320×240 com uma faixa de HUD de 12 pixels em cima e outra embaixo)
+aumenta ou diminui para caber na área que o Calamares der; os painéis
+laterais só aparecem quando sobra largura.
 
 ## Apresentação de reserva
 

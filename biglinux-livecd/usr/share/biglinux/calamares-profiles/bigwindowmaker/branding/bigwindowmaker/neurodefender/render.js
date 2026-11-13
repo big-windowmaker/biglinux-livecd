@@ -1,76 +1,116 @@
 .pragma library
 .import "config.js" as C
 .import "engine.js" as E
+.import "art.js" as Art
 // NeuroDefender: drawing. Everything is original pixel art defined here as
 // text rows; no image files. Sprites are rasterised once per colour into
 // ImageData and blitted with drawImage; when a context cannot blit image
 // data, the same rows are drawn as horizontal runs with fillRect.
 //
-// The arena canvas is 320 x 240 and is scaled up by the QML item with
-// smoothing off, so every pixel stays a crisp block.
+// The game canvas is 320 x 264: a 12-pixel HUD strip, the 240-pixel arena,
+// another 12-pixel strip. The QML item scales it up with smoothing off, so
+// every pixel stays a crisp block.
 
-// Palette letters: a/b = sector colours, others are fixed.
+var HUD_TOP = 12;
+
+// Palette letters: a/b = sector colours (e = a darker a), others are fixed.
 var FIXED = {
     w: "#FFFFFF", k: "#05060C", c: "#00E5FF", p: "#A855F7", g: "#39FF88",
-    r: "#FF405C", y: "#FFD166", s: "#AEAAAE", d: "#2A2F45", o: "#FF9A3D"
+    r: "#FF405C", y: "#FFD166", s: "#AEAAAE", d: "#2A2F45", o: "#FF9A3D",
+    n: "#1B2A6B", m: "#FF6EC7", l: "#B8FBFF", v: "#6A2FB0", h: "#8A5A12"
 };
 
 var SPR = {
-    ship: [
-        ".....w.....",
-        "....cwc....",
-        "....cwc....",
-        "...ccwcc...",
-        ".p.cbwbc.p.",
-        ".pccbwbccp.",
-        "ppcccwcccpp",
-        "p.cc...cc.p",
-        "p..c...c..p"
+    // the ship grows with its weapon: pulse, twin (side cannons), triple
+    // (swept golden wings and three barrels)
+    ship0: [
+        "......w......",
+        ".....lwl.....",
+        ".....cwc.....",
+        "....ncwcn....",
+        "....clwlc....",
+        "...nclwlcn...",
+        "..pnccwccnp..",
+        ".ppncclccnpp.",
+        "pvpncc.ccnpvp",
+        "pv.nc...cn.vp",
+        "p...k...k...p"
+    ],
+    ship1: [
+        "........w........",
+        ".......lwl.......",
+        ".......cwc.......",
+        "..w...ncwcn...w..",
+        "..c...clwlc...c..",
+        "..l..nclwlcn..l..",
+        ".pcpnnccwccnnpcp.",
+        "ppcppncclccnppcpp",
+        "pvcvpncc.ccnpvcvp",
+        "pv.v.nc...cn.v.vp",
+        "p..k..k...k..k..p"
+    ],
+    ship2: [
+        ".........w.........",
+        "........lwl........",
+        "...w....cwc....w...",
+        "...l...ncwcn...l...",
+        "...c...clwlc...c...",
+        "y..c..nclwlcn..c..y",
+        "yy.cpnnccwccnnpc.yy",
+        "yypcppncclccnppcpyy",
+        "yhpcvpncc.ccnpvcphy",
+        "yhpvvpnc...cnpvvphy",
+        "yh.v..nk...kn..v.hy",
+        "y..k...........k..y"
     ],
     drone0: [
-        "..aaaaa..",
-        ".abbabba.",
-        "aawaaawaa",
+        "..eaaae..",
+        ".eabbbae.",
+        "eawkakwae",
         "aaaaaaaaa",
+        ".eaeaeae.",
         ".a.a.a.a.",
-        "a..a.a..a"
+        "a..e.e..a"
     ],
     drone1: [
-        "..aaaaa..",
-        ".abbabba.",
-        "aawaaawaa",
+        "..eaaae..",
+        ".eabbbae.",
+        "eawkakwae",
         "aaaaaaaaa",
+        ".eaeaeae.",
         ".a.a.a.a.",
-        ".a.a.a.a."
+        ".a.e.e.a."
     ],
     brute0: [
-        "...aaaaa...",
-        ".aabbbbbaa.",
-        "aabwaaawbaa",
+        "...eaaae...",
+        ".eaabbbaae.",
+        "eabwkakwbae",
         "aaaaaaaaaaa",
-        "abaaaaaaaba",
-        "aa.a.a.a.aa",
-        "a..a...a..a"
+        "abeaaaaaeba",
+        "aaeaeaeaeaa",
+        ".a.a...a.a.",
+        "a..e...e..a"
     ],
     brute1: [
-        "...aaaaa...",
-        ".aabbbbbaa.",
-        "aabwaaawbaa",
+        "...eaaae...",
+        ".eaabbbaae.",
+        "eabwkakwbae",
         "aaaaaaaaaaa",
-        "abaaaaaaaba",
-        "aa.a.a.a.aa",
-        ".a.a...a.a."
+        "abeaaaaaeba",
+        "aaeaeaeaeaa",
+        ".a.a...a.a.",
+        ".a.e...e.a."
     ],
     mite0: [
-        ".aaa.",
+        ".eae.",
         "awbwa",
-        "aaaaa",
+        "eaaae",
         "a.a.a"
     ],
     mite1: [
-        ".aaa.",
+        ".eae.",
         "awbwa",
-        "aaaaa",
+        "eaaae",
         ".a.a."
     ],
     turret: [
@@ -135,9 +175,16 @@ function hexToRgb(h) {
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
 }
 
+function shade(hex, k) {
+    var rgb = hexToRgb(hex);
+    var h = function(v) { var t = Math.round(v * k).toString(16); return t.length < 2 ? "0" + t : t; };
+    return "#" + h(rgb[0]) + h(rgb[1]) + h(rgb[2]);
+}
+
 function colorOf(ch, a, b) {
     if (ch === "a") return a;
     if (ch === "b") return b;
+    if (ch === "e") return shade(a, 0.55);
     return FIXED[ch];
 }
 
@@ -173,11 +220,13 @@ function image(ctx, name, a, b, mono) {
     return img;
 }
 
-function sprite(ctx, name, x, y, a, b, mono) {
+// noBlit: draw with fillRect (canvases other than the arena's, whose
+// ImageData cache this is)
+function sprite(ctx, name, x, y, a, b, mono, noBlit) {
     var rows = SPR[name];
     var w = rows[0].length, h = rows.length;
     var x0 = Math.round(x - w / 2), y0 = Math.round(y - h / 2);
-    var img = image(ctx, name, a, b, mono);
+    var img = noBlit ? null : image(ctx, name, a, b, mono);
     if (img) { ctx.drawImage(img, x0, y0); return; }
     // fallback: horizontal runs of one colour
     for (var r = 0; r < h; r++) {
@@ -194,8 +243,12 @@ function sprite(ctx, name, x, y, a, b, mono) {
     }
 }
 
+// the 3x5 font has no accents: Á becomes A, Ç becomes C
+var PLAIN = { "Á": "A", "À": "A", "Â": "A", "Ã": "A", "É": "E", "Ê": "E", "Í": "I",
+              "Ó": "O", "Ô": "O", "Õ": "O", "Ú": "U", "Ü": "U", "Ç": "C" };
+
 function text(ctx, str, x, y, color, center) {
-    str = String(str).toUpperCase();
+    str = String(str).toUpperCase().replace(/[ÁÀÂÃÉÊÍÓÔÕÚÜÇ]/g, function (c) { return PLAIN[c]; });
     var w = str.length * 4 - 1;
     var x0 = Math.round(center ? x - w / 2 : x), y0 = Math.round(y);
     ctx.fillStyle = color;
@@ -446,34 +499,45 @@ function drawShip(ctx, g, frame) {
     if (p.inv > 0 && (frame % 4) < 2) return;      // respawn blink
     var x = Math.round(p.x), y = Math.round(p.y);
     var hurt = p.flash > 0 && (frame % 2) === 0;
-    // thrusters
+    var name = "ship" + p.spread;
+    var half = Math.floor(SPR[name].length / 2);
+    // engine flames: bigger and doubled with rapid fire
+    var fl = 1 + (frame % 3);
     ctx.fillStyle = (frame % 2) ? "#FFD166" : "#FF9A3D";
-    ctx.fillRect(x - 3, y + 5, 1, 1 + (frame % 3));
-    ctx.fillRect(x + 3, y + 5, 1, 1 + ((frame + 1) % 3));
-    // weapon pods: the ship grows with its weapons
-    if (p.spread >= 1) {
-        ctx.fillStyle = "#00E5FF";
-        ctx.fillRect(x - 7, y - 1, 1, 3); ctx.fillRect(x + 7, y - 1, 1, 3);
+    ctx.fillRect(x - 3, y + half, 1, fl);
+    ctx.fillRect(x + 3, y + half, 1, 1 + ((frame + 1) % 3));
+    if (p.rapid > 0) {
+        ctx.fillStyle = (frame % 2) ? "#FFFFFF" : "#FFD166";
+        ctx.fillRect(x - 1, y + half, 3, fl + 1);
+        ctx.fillStyle = "#FF9A3D";
+        ctx.fillRect(x, y + half + fl + 1, 1, 2);
     }
-    if (p.spread >= 2) {
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(x - 7, y - 3, 1, 2); ctx.fillRect(x + 7, y - 3, 1, 2);
+    if (p.spread === 2) {
+        ctx.fillStyle = (frame % 2) ? "#FFD166" : "#FF9A3D";
+        ctx.fillRect(x - 9, y + half, 1, 1 + (frame % 2));
+        ctx.fillRect(x + 9, y + half, 1, 1 + ((frame + 1) % 2));
     }
+    sprite(ctx, name, x, y, "#00E5FF", "#A855F7", hurt ? "#FF405C" : null);
+    // neural laser: a magenta crystal grows on the nose
     if (p.laser > 0) {
         ctx.fillStyle = "#FF6EC7";
-        ctx.fillRect(x, y - 7, 1, 2);
-    }
-    sprite(ctx, "ship", x, y, "#00E5FF", "#A855F7", hurt ? "#FF405C" : null);
-    if (p.rapid > 0) {
-        ctx.fillStyle = "#FFD166";
-        ctx.fillRect(x - 1, y + 4, 3, 1);
+        ctx.fillRect(x - 1, y - half - 2, 3, 2);
+        ctx.fillStyle = (frame % 4) < 2 ? "#FFFFFF" : "#FF6EC7";
+        ctx.fillRect(x, y - half - 4, 1, 2);
+        ctx.fillStyle = "#A855F7";
+        ctx.fillRect(x - 2, y - half, 1, 2); ctx.fillRect(x + 2, y - half, 1, 2);
     }
     if (p.shield > 0) {
-        // the bubble thins out in the last two seconds
+        // a hexagon of green sparks, thinning out in the last two seconds
         if (p.shield > 2 || (frame % 4) < 2) {
+            ctx.fillStyle = "#39FF88";
+            for (var t = 0; t < 12; t++) {
+                var ang = t / 12 * 6.283 + frame * 0.05;
+                ctx.fillRect(Math.round(x + Math.cos(ang) * 11), Math.round(y + Math.sin(ang) * 10), 1, 1);
+            }
             ctx.strokeStyle = "#39FF88";
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, Math.PI * 2); ctx.stroke();
+            ctx.globalAlpha = 0.45;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.stroke();
             ctx.globalAlpha = 1;
         }
     }
@@ -573,21 +637,137 @@ function drawArena(ctx, g, frame, lowFx) {
     }
 }
 
-// The title screen's ship and a few nanobots, drawn big on the same canvas.
-function drawTitle(ctx, time, frame) {
+// ---------------------------------------------------------------- frame
+
+// Pre-drawn pictures (logo, banners): drawn once with fillRect into an
+// ImageData through a small recorder, then blitted every frame.
+var pictures = {};
+var picturesOk = true;
+
+function picture(ctx, key, w, h, draw) {
+    var img = pictures[key];
+    if (img !== undefined) return img;
+    img = null;
+    if (picturesOk) {
+        try {
+            img = ctx.createImageData(w, h);
+            var data = img.data;
+            var rec = {
+                fillStyle: "#000000",
+                fillRect: function(x, y, rw, rh) {
+                    var rgb = hexToRgb(this.fillStyle);
+                    for (var yy = Math.max(0, y); yy < Math.min(h, y + rh); yy++)
+                        for (var xx = Math.max(0, x); xx < Math.min(w, x + rw); xx++) {
+                            var o = (yy * w + xx) * 4;
+                            data[o] = rgb[0]; data[o + 1] = rgb[1]; data[o + 2] = rgb[2]; data[o + 3] = 255;
+                        }
+                }
+            };
+            draw(rec);
+        } catch (err) {
+            console.warn("NeuroDefender: pictures drawn pixel by pixel:", err);
+            picturesOk = false;
+            img = null;
+        }
+    }
+    pictures[key] = img;
+    return img;
+}
+
+function blitOrDraw(ctx, key, x, y, w, h, draw) {
+    var img = picture(ctx, key, w, h, draw);
+    if (img) { ctx.drawImage(img, x, y); return; }
+    ctx.save(); ctx.translate(x, y); draw(ctx); ctx.restore();
+}
+
+function resetPictures() { pictures = {}; Art.resetCache(); }
+
+// Banners: a big title (2x pixels, gradient, outline) and a smaller line.
+// style: "warning" | "gold" | "mint" | "plain"
+function drawBanner(ctx, lines, style, frame) {
+    if (!lines || !lines.length) return;
     var W = C.ARENA_W, H = C.ARENA_H;
-    ctx.clearRect(0, 0, W, H);
+    var rows = style === "warning" ? Art.BLOOD : (style === "gold" ? Art.GOLD : (style === "mint" ? Art.MINT : Art.CHROME));
+    var main = String(lines[0]).toUpperCase();
+    var big = Art.width(main, 2) <= W - 16 ? 2 : 1;
+    var bw = Art.width(main, big) + 8, bh = 12 * big;      // room for accents and the outline
+    var y = Math.round(H / 2 - bh / 2 - (lines.length > 1 ? 6 : 0));
+    if (style === "warning") {
+        // hazard stripes above and below, flashing
+        if ((frame >> 3) % 2) {
+            for (var sx = 0; sx < W; sx += 8) {
+                ctx.fillStyle = "#FF405C"; ctx.fillRect(sx, y - 8, 4, 4); ctx.fillRect(sx + 4, y + bh + 4, 4, 4);
+                ctx.fillStyle = "#FFD166"; ctx.fillRect(sx + 4, y - 8, 4, 4); ctx.fillRect(sx, y + bh + 4, 4, 4);
+            }
+        }
+    }
+    blitOrDraw(ctx, "banner|" + main + style + big, Math.round(W / 2 - bw / 2), y, bw, bh, function(c) {
+        Art.title(c, main, bw / 2, big, rows, big, "#05060C", null);
+    });
+    for (var i = 1; i < lines.length; i++)
+        Art.fastText(ctx, String(lines[i]), W / 2, y + bh + 2 + (i - 1) * 10, "#FFFFFF", "center", "#05060C");
+}
+
+// One frame of the game screen: HUD strips and the arena between them.
+function drawFrame(ctx, g, frame, lowFx, hud, banner, bannerStyle) {
+    ctx.save();
+    ctx.translate(0, HUD_TOP);
+    drawArena(ctx, g, frame, lowFx);
+    drawBanner(ctx, banner, bannerStyle, frame);
+    ctx.restore();
+    Art.drawHud(ctx, hud, frame);
+}
+
+// ---------------------------------------------------------------- title
+
+// The attract screen: the chrome logo over a pulsing brain, a parade of
+// nanobots and the ship. The menu itself is QML on top of this.
+function drawTitle(ctx, time, frame, logo) {
+    var W = C.ARENA_W, H = C.ARENA_H + 2 * HUD_TOP;
+    ctx.fillStyle = "#06070F";
+    ctx.fillRect(0, 0, W, H);
+    // sparks drifting up
+    for (var i = 0; i < 40; i++) {
+        var sp = 6 + (i % 5) * 5;
+        var py = H - ((i * 47 + time * sp) % H);
+        ctx.fillStyle = i % 3 ? "#1B2A6B" : (i % 2 ? "#3D7BFF" : "#A855F7");
+        ctx.fillRect((i * 83) % W, Math.floor(py), 1, 1 + (i % 2));
+    }
+    // a big faint brain, pulsing
+    blitOrDraw(ctx, "brain", Math.round(W / 2 - 52), 70, 104, 68, function(c) {
+        for (var r = 0; r < Art.BRAIN.length; r++)
+            for (var k = 0; k < Art.BRAIN[r].length; k++) {
+                var ch = Art.BRAIN[r].charAt(k);
+                if (ch === ".") continue;
+                c.fillStyle = ch === "a" ? "#16204A" : "#1F2E66";
+                c.fillRect(k * 4, r * 4, 4, 4);
+            }
+    });
+    var pulse = (frame >> 2) % 26;
+    ctx.fillStyle = "#3D7BFF";
+    ctx.fillRect(Math.round(W / 2 - 52 + pulse * 4), 70 + 24 + ((pulse * 7) % 20), 3, 3);
+    // the logo: chrome letters with an outline and a purple drop shadow
+    blitOrDraw(ctx, "logo|" + logo.title, Math.round(W / 2 - 124), 6, 248, 46, function(c) {
+        Art.title(c, logo.title, 124, -2, Art.CHROME, 3, "#05060C", "#5B2A8A");
+    });
+    var sub = logo.subtitle.split("").join(" ");
+    Art.fastText(ctx, sub, W / 2, 46, "#FFD166", "center", "#05060C");
+    Art.fastText(ctx, logo.tagline, W / 2, 58, (frame >> 4) % 2 ? "#FFFFFF" : "#B8FBFF", "center", "#05060C");
+    // the parade
     var cols = ["#00E5FF", "#A855F7", "#FF6EC7", "#FFD166", "#39FF88"];
-    for (var i = 0; i < 7; i++) {
-        var x = 40 + i * 40 + Math.sin(time * 1.2 + i) * 6;
-        var y = 184 + Math.sin(time * 2 + i * 0.8) * 4;
-        sprite(ctx, (i % 3 === 1 ? "brute" : "drone") + ((frame >> 3) % 2), x, y, cols[i % 5], "#FFFFFF", null);
+    for (var n = 0; n < 8; n++) {
+        var x = ((n * 46 + time * 18) % (W + 40)) - 20;
+        var y = 208 + Math.sin(time * 2 + n * 0.8) * 3;
+        sprite(ctx, (n % 3 === 1 ? "brute" : "drone") + ((frame >> 3) % 2), x, y, cols[n % 5], "#FFFFFF", null);
     }
-    sprite(ctx, "ship", W / 2 + Math.sin(time * 0.8) * 30, 212, "#00E5FF", "#A855F7", null);
+    var shipName = "ship" + (Math.floor(time / 4) % 3);
+    var shx = W / 2 + Math.sin(time * 0.8) * 60;
+    sprite(ctx, shipName, shx, 240, "#00E5FF", "#A855F7", null);
     ctx.fillStyle = "#00E5FF";
-    var sx = Math.round(W / 2 + Math.sin(time * 0.8) * 30);
-    for (var k = 0; k < 4; k++) {
-        var yy = Math.round(200 - ((time * 140 + k * 30) % 120));
-        ctx.fillRect(sx, yy, 1, 4);
+    for (var q = 0; q < 4; q++) {
+        var yy = Math.round(232 - ((time * 140 + q * 30) % 40));
+        ctx.fillRect(Math.round(shx), yy, 1, 3);
     }
+    ctx.fillStyle = (frame % 2) ? "#FFD166" : "#FF9A3D";
+    ctx.fillRect(Math.round(shx) - 3, 246, 1, 2); ctx.fillRect(Math.round(shx) + 3, 246, 1, 2);
 }

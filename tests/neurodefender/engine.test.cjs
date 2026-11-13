@@ -516,15 +516,45 @@ test("the renderer draws every screen without throwing", () => {
         },
         set(t, k, v) { t[k] = v; return true; }
     });
+    const A = load("art.js");
     for (let s = 0; s < 9; s++) R.drawBackground(ctx, s, 320, 480);
-    R.drawTitle(ctx, 1.5, 3);
+    for (const t of [S.en, S.pt]) {
+        R.drawTitle(ctx, 1.5, 3, { title: "NEURODEFENDER", subtitle: t.subtitle, tagline: t.tagline });
+        A.drawHelp(ctx, t);
+        for (let p = 0; p < A.codexPages(t); p++) A.drawCodex(ctx, t, p, { split: true, boss_warden: true }, R.sprite);
+        A.drawPause(ctx, t);
+        A.drawResult(ctx, t, { won: true, score: 1, best: 2, sector: 9, wave: 3, kills: 4, accuracy: 50 });
+        for (let s = 0; s < 9; s++)
+            A.drawLeftPanel(ctx, { sector: s, width: 72, height: 264, labels: { map: t.mapTitle, sectors: t.sectors } });
+        A.drawRightPanel(ctx, { width: 72, height: 264, labels: { capsules: t.pickupsTitle, short: t.pickupShort, keys: t.panelKeys } });
+    }
+    const hud = { score: 1234, best: 99999, beating: true, stage: "SETOR 9 · CHEFE", boss: true, lives: 5, bombs: 5,
+                  energy: 20, weapon: "TRIPLO", mult: 2.5, shield: 6, label: { score: "PONTOS", best: "RECORDE" } };
     const g = E.create(4);
     E.startGame(g, "demo", 4, 8);
     for (let i = 0; i < 60 * 60; i++) {
         E.update(g, DT, noInput());
-        if (i % 7 === 0) { R.drawArena(ctx, g, i, false); R.drawArena(ctx, g, i, true); }
+        if (i % 7 === 0) {
+            R.drawFrame(ctx, g, i, false, hud, ["ALERTA! MEGA-NANOBOT DETECTADO"], "warning");
+            R.drawFrame(ctx, g, i, true, hud, ["SETOR 9", "The Neural Core"], "plain");
+        }
     }
     assert.ok(counts.drawImage > 0, "sprites are blitted");
+    // every letter of every text exists in the pixel font
+    const missing = new Set();
+    const scan = (v) => {
+        if (typeof v === "string") { for (const ch of v.toUpperCase()) if (!A.GLYPHS[ch] && !A.ACCENTS[ch]) missing.add(ch); }
+        else if (v && typeof v === "object") for (const k in v) scan(v[k]);
+    };
+    scan(S.en); scan(S.pt);
+    assert.equal([...missing].join(""), "", "characters missing from the pixel font");
+    // the arena's small font draws the capsule pop-ups, accents folded
+    const lit = (str) => { let n = 0; R.text({ set fillStyle(v) {}, fillRect() { n++; } }, str, 0, 0, "#FFF"); return n; };
+    for (const lang of [S.en, S.pt])
+        for (const k in lang.pickupShort) {
+            const name = lang.pickupShort[k];
+            assert.equal(lit(name), lit(name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")), name + " draws every letter");
+        }
 });
 
 test("texts exist in English and Portuguese with the same keys", () => {

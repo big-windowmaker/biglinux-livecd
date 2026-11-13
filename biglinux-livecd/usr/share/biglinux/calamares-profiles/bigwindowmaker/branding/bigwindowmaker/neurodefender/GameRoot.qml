@@ -1,14 +1,17 @@
-/* NeuroDefender: Nanobot Crisis — the game's window, HUD, screens and loop.
+/* NeuroDefender: Nanobot Crisis — the game's cabinet, screens and loop.
  *
  * The slideshow (BigWindowMakerSlides.qml) loads this file only when the
  * installation step starts, and calls activate()/deactivate() from the
  * Calamares onActivate()/onLeave(). Nothing runs while it is inactive, hidden
  * or paused: the one Timer below is the whole game loop.
  *
- * The rules live in engine.js (plain JavaScript, tested with Node), the
- * drawing in render.js, the numbers in config.js, the texts in strings.js.
- * Any error in a frame stops the game and asks the slideshow to show the
- * static presentation instead ("failed").
+ * Look of a 1997 arcade: the game screen (320 x 264 pixels: HUD strip,
+ * 240-pixel arena, HUD strip) scaled up with crisp pixels, between two
+ * cabinet panels (emblem and sector map; capsules and keys). Everything is
+ * drawn by render.js and art.js; QML only places the canvases and the menus.
+ * The rules live in engine.js, the numbers in config.js, the texts in
+ * strings.js. Any error in a frame stops the game and asks the slideshow to
+ * show the static presentation instead ("failed").
  */
 pragma ComponentBehavior: Bound
 
@@ -16,6 +19,7 @@ import QtQuick
 import "config.js" as Config
 import "engine.js" as Engine
 import "render.js" as Render
+import "art.js" as Art
 import "strings.js" as Strings
 
 FocusScope {
@@ -52,24 +56,15 @@ FocusScope {
     property real bgScroll: 0
     property bool newRecord: false
     property int codexPage: 0
-    property var toasts: []
     property string toastText: ""
     property real toastTime: 0
-
-    // HUD mirrors (written only when they change: no binding churn per frame)
-    property int hudScore: 0
-    property int hudShown: 0
+    property int hudShown: 0                 // the score as it counts up on screen
     property int hudBest: 0
-    property int hudLives: 3
-    property int hudBombs: 2
-    property real hudEnergy: 100
-    property int hudSector: 1
-    property int hudWave: 1
-    property string hudStage: ""          // "WAVE 2", "BOSS", ...
-    property string hudWeapon: ""
-    property real hudMult: 1
-    property real hudShield: 0
-    property string bannerText: ""
+    // the HUD strips' contents, rebuilt every frame (see syncHud)
+    property var hud: ({ score: 0, best: 0, beating: false, stage: "", boss: false, lives: 3, bombs: 2,
+                         energy: 100, weapon: "", mult: 1, shield: 0, label: { score: "", best: "" } })
+    property var bannerLines: []
+    property string bannerStyle: "plain"
     property string bannerKey: ""
     // Game Over / victory figures, copied when the screen opens
     property var result: ({ won: false, score: 0, best: 0, sector: 1, wave: 1, kills: 0, accuracy: 0 })
@@ -89,17 +84,29 @@ FocusScope {
     readonly property bool shown: game.visible
     readonly property bool needsLoop: active && !failed && shown
                                       && (screen === "play" || screen === "demo" || screen === "title")
-    readonly property bool narrow: width < 320 * 1.2 + 170
+
+    // --- geometry ---------------------------------------------------------
+    readonly property int screenW: Config.ARENA_W
+    readonly property int screenH: Config.ARENA_H + 2 * Render.HUD_TOP
+    readonly property int panelW: 72                     // cabinet panel, in game pixels
+    // screen pixels per game pixel: the largest that fits under the title bar
+    readonly property real arenaScale: {
+        const s = Math.min((width - 12) / screenW, (height - titleBar.height - 8) / screenH);
+        return Math.max(0.5, s >= 2 ? Math.floor(s) : s);    // whole pixels when there is room
+    }
+    readonly property bool panels: width - 12 >= (screenW + 2 * panelW) * arenaScale + 12
 
     // ------------------------------------------------------------------ API
 
     function activate(): void {
         txt = Strings.forLocale(Qt.locale().name);
+        g.names = txt.pickupShort;
         active = true;
         lastTime = 0;
         lastPaint = 0;
         dormant = false;
-        hudStage = txt.wave + " 1";
+        Render.resetPictures();
+        repaintStatic();
         if (screen === "demo" || screen === "title") goTitle();
     }
 
@@ -128,14 +135,17 @@ FocusScope {
         g.lowFx = true;                  // the demo is the cheap show
         demoRun++;
         demoTime = 0;
+        hudShown = 0;
         screen = "demo";
     }
 
     function startPlay(): void {
         releaseInput();
+        g.names = txt.pickupShort;
         Engine.startGame(g, "play", Date.now() % 2147483647, 0);
         g.lowFx = lowFx;
         newRecord = false;
+        hudShown = 0;
         screen = "play";
         keys.forceActiveFocus();
     }
@@ -167,6 +177,12 @@ FocusScope {
         if (screen === "title") titleIdle = 0;
     }
 
+    function openCodex(): void {
+        codexPage = 0;
+        seenVersion++;
+        screen = "codex";
+    }
+
     function toggleSound(): void {
         if (!soundAvailable) return;
         soundOn = !soundOn;
@@ -181,6 +197,39 @@ FocusScope {
     function releaseInput(): void {
         input.left = input.right = input.up = input.down = false;
         input.fire = input.bomb = input.pointer = false;
+    }
+
+    // the menu of each screen: [{ label, act }]
+    function menuItems(): var {
+        switch (screen) {
+        case "title":
+            return [{ label: txt.start, act: "start" }, { label: txt.howTo, act: "help" },
+                    { label: txt.codex, act: "codex" },
+                    { label: !soundAvailable ? txt.soundNa : (soundOn ? txt.soundOn : txt.soundOff), act: "sound" },
+                    { label: userLowFx ? txt.effectsLow : txt.effectsFull, act: "effects" }];
+        case "paused":
+            return [{ label: txt.resume, act: "resume" }, { label: txt.howTo, act: "help" }, { label: txt.quit, act: "quit" }];
+        case "over":
+            return [{ label: txt.playAgain, act: "start" }, { label: txt.quit, act: "quit" }];
+        case "help": case "codex":
+            return [{ label: txt.back, act: "back" }];
+        case "demo":
+            return [{ label: txt.start, act: "start" }];
+        }
+        return [];
+    }
+
+    function menuAction(act: string): void {
+        switch (act) {
+        case "start": startPlay(); break;
+        case "help": openHelp(); break;
+        case "codex": openCodex(); break;
+        case "sound": toggleSound(); break;
+        case "effects": toggleEffects(); break;
+        case "resume": resume(); break;
+        case "quit": goTitle(); break;
+        case "back": if (screen === "help") closeHelp(); else goTitle(); break;
+        }
     }
 
     // ------------------------------------------------------------------ loop
@@ -255,9 +304,14 @@ FocusScope {
         const key = g.banner + "|" + g.bannerArg;
         if (key !== bannerKey) {
             bannerKey = key;
-            bannerText = g.banner ? Strings.fill(txt.banner[g.banner] || g.banner, g.bannerArg) : "";
-            if (g.banner === "sector")
-                bannerText += "\n" + txt.sectors[g.sector];
+            if (!g.banner) bannerLines = [];
+            else {
+                const main = Strings.fill(txt.banner[g.banner] || g.banner, g.bannerArg);
+                bannerLines = g.banner === "sector" ? [main, txt.sectors[g.sector]] : [main];
+            }
+            bannerStyle = g.banner === "warning" ? "warning"
+                        : (["sectorClear", "victory", "bonusPerfect"].indexOf(g.banner) >= 0 ? "gold"
+                        : (["waveClear", "bonusResult"].indexOf(g.banner) >= 0 ? "mint" : "plain"));
         }
     }
 
@@ -284,28 +338,29 @@ FocusScope {
     }
 
     function syncHud(dt: real): void {
-        const p = g.p;
-        if (hudScore !== g.score) hudScore = g.score;
+        const p = g.p, h = hud;
         // the score counts up like an arcade's
-        if (hudShown !== hudScore) hudShown = Math.min(hudScore, hudShown + Math.max(7, Math.ceil((hudScore - hudShown) * 0.2)));
-        if (hudBest !== Math.max(g.best, g.score) && screen === "play") hudBest = Math.max(g.best, g.score);
-        if (hudLives !== p.lives) hudLives = p.lives;
-        if (hudBombs !== p.bombs) hudBombs = p.bombs;
-        const en = Math.max(0, Math.round(p.energy));
-        if (hudEnergy !== en) hudEnergy = en;
-        if (hudSector !== g.sector + 1) hudSector = g.sector + 1;
-        if (hudWave !== Math.min(g.wave + 1, Config.wavesPerSector)) hudWave = Math.min(g.wave + 1, Config.wavesPerSector);
-        const stage = (g.phase === "boss" || g.phase === "bossWarning" || g.phase === "bossDown") ? txt.boss
-                      : (g.bonusWave || g.pendingBonus ? "BONUS" : txt.wave + " " + hudWave);
-        if (hudStage !== stage) hudStage = stage;
-        const w = p.laser > 0 ? txt.weapons.laser : (p.rapid > 0 ? txt.weapons.rapid
-                  : (p.spread === 2 ? txt.weapons.spread3 : (p.spread === 1 ? txt.weapons.spread2 : txt.weapons.normal)));
-        if (hudWeapon !== w) hudWeapon = w;
-        if (hudMult !== g.mult) hudMult = g.mult;
-        const sh = Math.max(0, Math.ceil(p.shield));
-        if (hudShield !== sh) hudShield = sh;
+        if (hudShown !== g.score) hudShown = Math.min(g.score, hudShown + Math.max(7, Math.ceil((g.score - hudShown) * 0.2)));
+        if (screen === "play") hudBest = Math.max(g.best, g.score);
+        const wave = Math.min(g.wave + 1, Config.wavesPerSector);
+        const boss = g.phase === "boss" || g.phase === "bossWarning" || g.phase === "bossDown";
+        h.score = hudShown;
+        h.best = screen === "demo" ? Math.max(hudBest, g.best) : hudBest;
+        h.beating = screen === "play" && g.score > 0 && g.score >= hudBest;
+        h.boss = boss;
+        h.stage = txt.sector + " " + (g.sector + 1) + " · "
+                  + (boss ? txt.boss : (g.bonusWave || g.pendingBonus ? "BONUS" : txt.wave + " " + wave));
+        h.lives = Math.max(0, p.lives);
+        h.bombs = p.bombs;
+        h.energy = Math.max(0, Math.round(p.energy));
+        h.weapon = p.laser > 0 ? txt.weapons.laser : (p.rapid > 0 ? txt.weapons.rapid
+                   : (p.spread === 2 ? txt.weapons.spread3 : (p.spread === 1 ? txt.weapons.spread2 : txt.weapons.normal)));
+        h.mult = g.mult;
+        h.shield = Math.max(0, Math.ceil(p.shield));
+        h.label.score = txt.score;
+        h.label.best = txt.hiScore;
         if (toastTime > 0) toastTime -= dt;
-        if (bgSector !== g.sector) { bgSector = g.sector; background.requestPaint(); }
+        if (bgSector !== g.sector) { bgSector = g.sector; background.requestPaint(); leftPanel.requestPaint(); }
     }
 
     // ------------------------------------------------------------------ input
@@ -326,11 +381,6 @@ FocusScope {
         if (k === Qt.Key_P) { if (screen === "play") pause(); else if (screen === "paused") resume(); event.accepted = true; return; }
         if (k === Qt.Key_M) { toggleSound(); event.accepted = true; return; }
         if (k === Qt.Key_H) { if (screen === "help") closeHelp(); else openHelp(); event.accepted = true; return; }
-        if (k === Qt.Key_Return || k === Qt.Key_Enter) {
-            if (screen === "title" || screen === "demo" || screen === "over") { startPlay(); event.accepted = true; }
-            else if (screen === "paused") { resume(); event.accepted = true; }
-            return;
-        }
         if (k === Qt.Key_Escape) {
             if (screen === "play") pause();
             else if (screen === "help") closeHelp();
@@ -338,7 +388,18 @@ FocusScope {
             event.accepted = true;
             return;
         }
-        if (screen !== "play") return;
+        if (screen !== "play") {
+            // menus: arrows choose, Enter or Space runs; Left/Right turn the database's pages
+            if (k === Qt.Key_Up || k === Qt.Key_W) { menu.step(-1); event.accepted = true; }
+            else if (k === Qt.Key_Down || k === Qt.Key_S) { menu.step(1); event.accepted = true; }
+            else if (screen === "codex" && (k === Qt.Key_Left || k === Qt.Key_A)) { codexPage = (codexPage + Art.codexPages(txt) - 1) % Art.codexPages(txt); event.accepted = true; }
+            else if (screen === "codex" && (k === Qt.Key_Right || k === Qt.Key_D)) { codexPage = (codexPage + 1) % Art.codexPages(txt); event.accepted = true; }
+            else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space) {
+                if (screen === "demo") startPlay(); else menu.activate();
+                event.accepted = true;
+            }
+            return;
+        }
         if (k === Qt.Key_B) { if (!event.isAutoRepeat) input.bomb = true; event.accepted = true; return; }
         if (setKey(k, true)) event.accepted = true;
     }
@@ -350,6 +411,18 @@ FocusScope {
 
     // a hidden item pauses a running game (a lost focus does too, see keys)
     onShownChanged: if (!shown) pause()
+
+    // static pictures follow the screen, the page, the language and the result
+    function repaintStatic(): void {
+        screenCanvas.requestPaint();
+        leftPanel.requestPaint();
+        rightPanel.requestPaint();
+    }
+    onScreenChanged: { menu.index = 0; screenCanvas.requestPaint(); }
+    onCodexPageChanged: screenCanvas.requestPaint()
+    onTxtChanged: repaintStatic()
+    onResultChanged: screenCanvas.requestPaint()
+    onArenaScaleChanged: repaintStatic()
 
     Timer {
         id: loop
@@ -381,9 +454,8 @@ FocusScope {
 
     // the window: OPENSTEP grey with relief, black title bar like Window Maker's
     Rectangle {
-        id: frameBox
         anchors.fill: parent
-        color: "#AEAAAE"
+        color: "#0B0D18"
         Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top } height: 1; color: "#FFFFFF" }
         Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom } width: 1; color: "#FFFFFF" }
         Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 1; color: "#000000" }
@@ -393,18 +465,18 @@ FocusScope {
     Rectangle {
         id: titleBar
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 1 }
-        height: 22
+        height: 20
         color: "#111111"
         Text {
             anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
             text: "NeuroDefender — Nanobot Crisis"
             color: "#FFFFFF"
             font.bold: true
-            font.pixelSize: 13
+            font.pixelSize: 12
         }
         Row {
-            anchors { right: parent.right; rightMargin: 3; verticalCenter: parent.verticalCenter }
-            spacing: 3
+            anchors { right: parent.right; rightMargin: 2; verticalCenter: parent.verticalCenter }
+            spacing: 2
             RetroButton { compact: true; text: "?"; onClicked: game.openHelp() }
             RetroButton { compact: true; text: game.soundOn ? "♪" : "-"; onClicked: game.toggleSound() }
             RetroButton {
@@ -416,450 +488,233 @@ FocusScope {
         }
     }
 
-    // arena size: the largest 4:3 that fits next to (or under) the HUD
-    readonly property real arenaScale: {
-        const availW = width - 12 - (narrow ? 0 : 158);
-        const availH = height - titleBar.height - 12 - (narrow ? 34 : 0);
-        const s = Math.max(0.5, Math.min(availW / Config.ARENA_W, availH / Config.ARENA_H));
-        return s >= 2 ? Math.floor(s) : s;          // whole pixels when there is room
-    }
+    // ------------------------------------------------------------------ cabinet
 
-    // ------------------------------------------------------------------ arena
+    Item {
+        id: cabinet
+        anchors { left: parent.left; right: parent.right; top: titleBar.bottom; bottom: parent.bottom; margins: 4 }
 
-    Rectangle {
-        id: arenaBox
-        x: 6 + (game.narrow ? (game.width - 12 - width) / 2 : 0)
-        y: titleBar.y + titleBar.height + 6 + (game.narrow ? 34 : 0)
-        width: Config.ARENA_W * game.arenaScale + 4
-        height: Config.ARENA_H * game.arenaScale + 4
-        color: "#000000"
-        // sunken relief
-        Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top } height: 1; color: "#555555" }
-        Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom } width: 1; color: "#555555" }
-        Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 1; color: "#FFFFFF" }
-        Rectangle { anchors { right: parent.right; top: parent.top; bottom: parent.bottom } width: 1; color: "#FFFFFF" }
-
-        Item {
-            id: view
-            x: 2; y: 2
-            width: Config.ARENA_W * game.arenaScale
-            height: Config.ARENA_H * game.arenaScale
-            clip: true
-
-            // neural backdrop: painted once per sector, scrolled for free
-            Canvas {
-                id: background
-                width: Config.ARENA_W
-                height: Config.ARENA_H * 2
-                scale: game.arenaScale
-                transformOrigin: Item.TopLeft
-                smooth: false
-                y: (game.bgScroll - Config.ARENA_H) * game.arenaScale
-                renderStrategy: Canvas.Cooperative
-                onPaint: {
-                    const ctx = getContext("2d");
-                    Render.drawBackground(ctx, Math.max(0, game.bgSector), width, height);
-                }
-            }
-
-            Canvas {
-                id: arena
-                width: Config.ARENA_W
-                height: Config.ARENA_H
-                scale: game.arenaScale
-                transformOrigin: Item.TopLeft
-                smooth: false
-                renderStrategy: Canvas.Cooperative
-                onPaint: {
-                    const t0 = Date.now();
-                    game.lastPaint = t0;
-                    const ctx = getContext("2d");
-                    try {
-                        if (game.screen === "title") Render.drawTitle(ctx, game.g.time, game.frame);
-                        else Render.drawArena(ctx, game.g, game.frame, game.lowFx || game.g.lowFx);
-                    } catch (err) {
-                        game.fail("paint: " + err);
-                        return;
-                    }
-                    game.avgPaintMs += ((Date.now() - t0) - game.avgPaintMs) * 0.05;
-                }
-            }
-
-            // keyboard and mouse: only while this item has the focus
-            Item {
-                id: keys
-                objectName: "neurodefenderKeys"
-                anchors.fill: parent
-                focus: true
-                Keys.onPressed: (event) => game.keyPressed(event)
-                Keys.onReleased: (event) => game.keyReleased(event)
-                onActiveFocusChanged: if (!activeFocus) game.pause()
-            }
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onPressed: (mouse) => {
-                    keys.forceActiveFocus();
-                    if (game.screen !== "play") return;
-                    if (mouse.button === Qt.RightButton) { game.input.bomb = true; return; }
-                    game.input.fire = true;
-                    game.input.pointer = true;
-                    game.input.px = mouse.x / game.arenaScale;
-                    game.input.py = mouse.y / game.arenaScale;
-                }
-                onPositionChanged: (mouse) => {
-                    game.input.px = mouse.x / game.arenaScale;
-                    game.input.py = mouse.y / game.arenaScale;
-                }
-                onReleased: (mouse) => {
-                    if (mouse.button === Qt.LeftButton) { game.input.fire = false; game.input.pointer = false; }
-                }
-            }
-
-            // banners: READY, WAVE COMPLETE, WARNING...
-            Text {
-                anchors.centerIn: parent
-                width: parent.width - 20
-                visible: game.bannerText !== "" && (game.screen === "play" || game.screen === "demo")
-                text: game.bannerText
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                color: game.bannerKey.indexOf("warning") === 0 ? ((game.frame >> 3) % 2 ? "#FF405C" : "#FFFFFF") : "#FFFFFF"
-                style: Text.Outline
-                styleColor: "#000000"
-                font.family: "monospace"
-                font.bold: true
-                font.pixelSize: Math.max(14, Math.round(11 * game.arenaScale))
-            }
-
-            // achievement toast
-            Rectangle {
-                anchors { right: parent.right; top: parent.top; margins: 6 }
-                visible: game.toastTime > 0
-                width: toast.implicitWidth + 16
-                height: toast.implicitHeight + 8
-                color: "#111111"
-                border.color: "#FFD166"
-                Text {
-                    id: toast
-                    anchors.centerIn: parent
-                    text: game.toastText
-                    color: "#FFD166"
-                    font.family: "monospace"
-                    font.bold: true
-                    font.pixelSize: 11
-                }
-            }
-
-            // ---------------------------------------------------- screens
-
-            // title
-            Item {
-                anchors.fill: parent
-                visible: game.screen === "title"
-                Column {
-                    anchors { top: parent.top; topMargin: parent.height * 0.06; horizontalCenter: parent.horizontalCenter }
-                    spacing: 2
-                    Item {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: logo.implicitWidth; height: logo.implicitHeight
-                        // neon: a pulsing glow copy behind the crisp text
-                        Text {
-                            x: 2; y: 2
-                            text: logo.text; font: logo.font
-                            color: (game.frame >> 4) % 2 ? "#A855F7" : "#5B2A8A"
-                        }
-                        Text {
-                            id: logo
-                            text: "NEURODEFENDER"
-                            color: "#00E5FF"
-                            font.family: "monospace"
-                            font.bold: true
-                            font.pixelSize: Math.round(20 * game.arenaScale)
-                        }
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: game.txt.subtitle
-                        color: "#FFD166"
-                        font.family: "monospace"; font.bold: true
-                        font.pixelSize: Math.round(9 * game.arenaScale)
-                        font.letterSpacing: 4
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "“" + game.txt.tagline + "”"
-                        color: "#FFFFFF"
-                        font.italic: true
-                        font.pixelSize: Math.round(6 * game.arenaScale)
-                    }
-                }
-                Column {
-                    anchors { centerIn: parent; verticalCenterOffset: -parent.height * 0.02 }
-                    spacing: 4
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.start; highlighted: true; onClicked: game.startPlay() }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.howTo; onClicked: game.openHelp() }
-                    RetroButton {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: !game.soundAvailable ? game.txt.soundNa : (game.soundOn ? game.txt.soundOn : game.txt.soundOff)
-                        onClicked: game.toggleSound()
-                    }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.userLowFx ? game.txt.effectsLow : game.txt.effectsFull; onClicked: game.toggleEffects() }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.codex; onClicked: { game.codexPage = 0; game.screen = "codex"; } }
-                }
-                Text {
-                    anchors { bottom: parent.bottom; bottomMargin: 4; horizontalCenter: parent.horizontalCenter }
-                    width: parent.width - 24
-                    text: game.txt.installNote + "  " + (game.hudBest > 0 ? game.txt.hiScore + " " + game.hudBest : "")
-                    horizontalAlignment: Text.AlignHCenter
-                    color: "#AEAAAE"
-                    font.pixelSize: 11
-                }
-            }
-
-            // demo label
-            Rectangle {
-                visible: game.screen === "demo"
-                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                height: 30
-                color: "#CC111111"
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 10
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: game.txt.demo
-                        color: (game.frame >> 4) % 2 ? "#FFD166" : "#FFFFFF"
-                        font.family: "monospace"; font.bold: true; font.pixelSize: 13
-                    }
-                    RetroButton { anchors.verticalCenter: parent.verticalCenter; text: game.txt.start; highlighted: true; onClicked: game.startPlay() }
-                }
-            }
-
-            // pause, game over and the text screens share a dimmed panel
-            Rectangle {
-                anchors.fill: parent
-                visible: game.screen === "paused" || game.screen === "over" || game.screen === "help" || game.screen === "codex"
-                color: "#C8080B18"
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    visible: game.screen === "paused"
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.paused; color: "#00E5FF"; font.family: "monospace"; font.bold: true; font.pixelSize: 26 }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.pausedHint; color: "#FFFFFF"; font.pixelSize: 11 }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.resume; highlighted: true; onClicked: game.resume() }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.howTo; onClicked: game.openHelp() }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.quit; onClicked: game.goTitle() }
-                }
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 5
-                    visible: game.screen === "over"
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: game.result.won ? game.txt.victoryTitle : game.txt.gameOver
-                        color: game.result.won ? "#39FF88" : "#FF405C"
-                        font.family: "monospace"; font.bold: true; font.pixelSize: 26
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        visible: game.newRecord
-                        text: game.txt.newRecord
-                        color: (game.frame >> 3) % 2 ? "#FFD166" : "#FFFFFF"
-                        font.family: "monospace"; font.bold: true; font.pixelSize: 14
-                    }
-                    Grid {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        columns: 2; columnSpacing: 14; rowSpacing: 2
-                        Text { text: game.txt.finalScore; color: "#AEAAAE"; font.pixelSize: 12 }
-                        Text { text: game.result.score; color: "#FFFFFF"; font.family: "monospace"; font.bold: true; font.pixelSize: 12 }
-                        Text { text: game.txt.best; color: "#AEAAAE"; font.pixelSize: 12 }
-                        Text { text: game.result.best; color: "#FFD166"; font.family: "monospace"; font.bold: true; font.pixelSize: 12 }
-                        Text { text: game.txt.reached; color: "#AEAAAE"; font.pixelSize: 12 }
-                        Text { text: game.txt.sector + " " + game.result.sector + " · " + game.txt.wave + " " + game.result.wave; color: "#FFFFFF"; font.family: "monospace"; font.pixelSize: 12 }
-                        Text { text: game.txt.kills; color: "#AEAAAE"; font.pixelSize: 12 }
-                        Text { text: game.result.kills; color: "#FFFFFF"; font.family: "monospace"; font.pixelSize: 12 }
-                        Text { text: game.txt.accuracy; color: "#AEAAAE"; font.pixelSize: 12 }
-                        Text { text: game.result.accuracy + "%"; color: "#FFFFFF"; font.family: "monospace"; font.pixelSize: 12 }
-                    }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.playAgain; highlighted: true; onClicked: game.startPlay() }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: game.txt.quit; onClicked: game.goTitle() }
-                }
-
-                // how to play
-                Item {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    visible: game.screen === "help"
-                    Text {
-                        id: helpTitle
-                        anchors { top: parent.top; horizontalCenter: parent.horizontalCenter }
-                        text: game.txt.howTo
-                        color: "#00E5FF"; font.family: "monospace"; font.bold: true; font.pixelSize: 16
-                    }
-                    Text {
-                        id: story
-                        anchors { top: helpTitle.bottom; topMargin: 4; left: parent.left; right: parent.right }
-                        text: game.txt.story
-                        color: "#FFFFFF"; font.pixelSize: 11; wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-                    Row {
-                        anchors { top: story.bottom; topMargin: 6; horizontalCenter: parent.horizontalCenter }
-                        spacing: 16
-                        Column {
-                            spacing: 1
-                            Text { text: game.txt.controlsTitle; color: "#FFD166"; font.family: "monospace"; font.bold: true; font.pixelSize: 11 }
-                            Repeater {
-                                model: game.txt.controls
-                                Text {
-                                    required property var modelData
-                                    text: "<b>" + modelData[0] + "</b>  " + modelData[1]
-                                    textFormat: Text.StyledText
-                                    color: "#FFFFFF"; font.pixelSize: 10
-                                }
-                            }
-                        }
-                        Column {
-                            spacing: 1
-                            Text { text: game.txt.pickupsTitle; color: "#FFD166"; font.family: "monospace"; font.bold: true; font.pixelSize: 11 }
-                            Repeater {
-                                model: ["spread", "rapid", "laser", "shield", "bomb", "repair", "life"]
-                                Row {
-                                    id: capRow
-                                    required property string modelData
-                                    spacing: 5
-                                    // the capsule's letter: the icon reads without colour
-                                    Rectangle {
-                                        width: 13; height: 13
-                                        color: Render.PICKUP_COLOR[capRow.modelData]
-                                        border.color: "#FFFFFF"
-                                        Text { anchors.centerIn: parent; text: game.txt.pickups[capRow.modelData][0]; color: "#000000"; font.family: "monospace"; font.bold: true; font.pixelSize: 10 }
-                                    }
-                                    Text { text: game.txt.pickups[capRow.modelData][1]; color: "#FFFFFF"; font.pixelSize: 10 }
-                                }
-                            }
-                        }
-                    }
-                    Text {
-                        anchors { bottom: backHelp.top; bottomMargin: 3; horizontalCenter: parent.horizontalCenter }
-                        text: game.txt.clickToPlay
-                        color: "#AEAAAE"; font.pixelSize: 10
-                    }
-                    RetroButton { id: backHelp; anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter } text: game.txt.back; onClicked: game.closeHelp() }
-                }
-
-                // nanobot database (encyclopedia): what you have met so far
-                Item {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    visible: game.screen === "codex"
-                    Text {
-                        id: codexTitle
-                        anchors { top: parent.top; horizontalCenter: parent.horizontalCenter }
-                        text: game.txt.codex + "  " + (game.codexPage + 1) + "/3"
-                        color: "#00E5FF"; font.family: "monospace"; font.bold: true; font.pixelSize: 16
-                    }
-                    Column {
-                        anchors { top: codexTitle.bottom; topMargin: 6; left: parent.left; right: parent.right }
-                        spacing: 4
-                        Repeater {
-                            model: game.txt.codexEntries.slice(game.codexPage * 6, game.codexPage * 6 + 6)
-                            Column {
-                                id: entry
-                                required property var modelData
-                                readonly property bool known: game.seenVersion >= 0 && (entry.modelData[0] === "basic" || game.g.seen[entry.modelData[0]] === true)
-                                width: parent.width
-                                Text { text: entry.modelData[1]; color: entry.known ? "#FFD166" : "#555555"; font.family: "monospace"; font.bold: true; font.pixelSize: 11 }
-                                Text { width: parent.width; text: entry.known ? entry.modelData[2] : game.txt.codexUnknown; color: entry.known ? "#FFFFFF" : "#777777"; font.pixelSize: 10; wrapMode: Text.WordWrap }
-                            }
-                        }
-                    }
-                    Row {
-                        anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
-                        spacing: 6
-                        RetroButton { compact: true; text: "<"; onClicked: game.codexPage = (game.codexPage + 2) % 3 }
-                        RetroButton { text: game.txt.back; onClicked: game.goTitle() }
-                        RetroButton { compact: true; text: ">"; onClicked: game.codexPage = (game.codexPage + 1) % 3 }
-                    }
-                }
-            }
-        }
-    }
-
-    // ------------------------------------------------------------------ HUD
-
-    component HudLabel: Text {
-        color: "#000000"
-        font.family: "monospace"
-        font.bold: true
-        font.pixelSize: 11
-    }
-    component HudValue: Text {
-        color: "#000000"
-        font.family: "monospace"
-        font.pixelSize: 15
-        font.bold: true
-    }
-
-    // side panel (wide layouts) — sunken boxes of black-on-grey text
-    Column {
-        id: hud
-        visible: !game.narrow
-        x: arenaBox.x + arenaBox.width + 8
-        y: arenaBox.y
-        width: game.width - x - 8
-        spacing: 3
-
-        HudLabel { text: game.txt.score }
-        HudValue { text: String(game.hudShown).padStart(7, "0") }
-        HudLabel { text: game.txt.hiScore }
-        HudValue {
-            text: String(game.hudBest).padStart(7, "0")
-            color: game.screen === "play" && game.hudScore > 0 && game.hudScore >= game.hudBest && (game.frame >> 4) % 2 ? "#7A5A00" : "#000000"
-        }
-        Rectangle { width: parent.width; height: 1; color: "#555555" }
-        HudLabel { text: game.txt.sector + " " + game.hudSector + " · " + game.hudStage }
-        Text {
-            width: parent.width
-            text: game.txt.sectors[game.hudSector - 1]
-            color: "#000000"; font.pixelSize: 11; elide: Text.ElideRight
-        }
-        Rectangle { width: parent.width; height: 1; color: "#555555" }
-        HudLabel { text: game.txt.energy }
-        // energy bar: sunken, with a number so it does not rely on colour
-        Rectangle {
-            width: parent.width; height: 12
-            color: "#000000"
-            Rectangle {
-                x: 1; y: 1; height: parent.height - 2
-                width: (parent.width - 2) * game.hudEnergy / Config.player.energy
-                color: game.hudEnergy > 50 ? "#39FF88" : (game.hudEnergy > 25 ? "#FFD166" : "#FF405C")
-            }
-            Text { anchors.centerIn: parent; text: game.hudEnergy; color: "#FFFFFF"; style: Text.Outline; styleColor: "#000000"; font.family: "monospace"; font.bold: true; font.pixelSize: 10 }
-        }
         Row {
-            spacing: 10
-            Column { HudLabel { text: game.txt.lives } HudValue { text: "♥ " + game.hudLives } }
-            Column { HudLabel { text: game.txt.bombs } HudValue { text: "◉ " + game.hudBombs } }
-        }
-        HudLabel { text: game.txt.weapon }
-        HudValue { text: game.hudWeapon + (game.hudShield > 0 ? " +O" + game.hudShield : ""); font.pixelSize: 13 }
-        HudLabel { text: game.txt.combo + " x" + game.hudMult.toFixed(1); color: game.hudMult > 1 ? "#7A1020" : "#000000" }
-    }
+            anchors.centerIn: parent
+            spacing: 4
 
-    // top strip (narrow layouts)
-    Row {
-        visible: game.narrow
-        x: 8
-        y: titleBar.y + titleBar.height + 8
-        spacing: 12
-        HudValue { text: game.txt.score + " " + game.hudShown; font.pixelSize: 12 }
-        HudValue { text: "♥" + game.hudLives; font.pixelSize: 12 }
-        HudValue { text: "◉" + game.hudBombs; font.pixelSize: 12 }
-        HudValue { text: "E" + game.hudEnergy; font.pixelSize: 12 }
-        HudValue { text: game.txt.sector + " " + game.hudSector + " · " + game.hudStage; font.pixelSize: 12 }
+            // left panel: brain emblem, NEURO DEFENDER, the nine-sector map
+            Item {
+                visible: game.panels
+                width: game.panelW * game.arenaScale
+                height: game.screenH * game.arenaScale
+                Canvas {
+                    id: leftPanel
+                    width: game.panelW
+                    height: game.screenH
+                    scale: game.arenaScale
+                    transformOrigin: Item.TopLeft
+                    smooth: false
+                    onPaint: {
+                        const ctx = getContext("2d");
+                        Art.drawLeftPanel(ctx, { sector: Math.max(0, game.screen === "title" ? 0 : game.g.sector),
+                                                 width: width, height: height,
+                                                 labels: { map: game.txt.mapTitle, sectors: game.txt.sectors } });
+                    }
+                }
+            }
+
+            // the game screen
+            Item {
+                id: view
+                width: game.screenW * game.arenaScale
+                height: game.screenH * game.arenaScale
+                clip: true
+
+                // neural backdrop: painted once per sector, scrolled for free
+                Item {
+                    x: 0; y: Render.HUD_TOP * game.arenaScale
+                    width: parent.width; height: Config.ARENA_H * game.arenaScale
+                    clip: true
+                    Canvas {
+                        id: background
+                        width: Config.ARENA_W
+                        height: Config.ARENA_H * 2
+                        scale: game.arenaScale
+                        transformOrigin: Item.TopLeft
+                        smooth: false
+                        y: (game.bgScroll - Config.ARENA_H) * game.arenaScale
+                        renderStrategy: Canvas.Cooperative
+                        onPaint: {
+                            const ctx = getContext("2d");
+                            Render.drawBackground(ctx, Math.max(0, game.bgSector), width, height);
+                        }
+                    }
+                }
+
+                Canvas {
+                    id: arena
+                    width: game.screenW
+                    height: game.screenH
+                    scale: game.arenaScale
+                    transformOrigin: Item.TopLeft
+                    smooth: false
+                    renderStrategy: Canvas.Cooperative
+                    onPaint: {
+                        const t0 = Date.now();
+                        game.lastPaint = t0;
+                        const ctx = getContext("2d");
+                        try {
+                            if (game.screen === "title")
+                                Render.drawTitle(ctx, game.g.time, game.frame,
+                                                 { title: "NEURODEFENDER", subtitle: game.txt.subtitle, tagline: game.txt.tagline });
+                            else
+                                Render.drawFrame(ctx, game.g, game.frame, game.lowFx || game.g.lowFx,
+                                                 game.hud, game.bannerLines, game.bannerStyle);
+                        } catch (err) {
+                            game.fail("paint: " + err);
+                            return;
+                        }
+                        game.avgPaintMs += ((Date.now() - t0) - game.avgPaintMs) * 0.05;
+                    }
+                }
+
+                // still pictures over the game: pause veil, results, help, database
+                Canvas {
+                    id: screenCanvas
+                    width: game.screenW
+                    height: game.screenH
+                    scale: game.arenaScale
+                    transformOrigin: Item.TopLeft
+                    smooth: false
+                    visible: ["paused", "over", "help", "codex"].indexOf(game.screen) >= 0
+                    onPaint: {
+                        const ctx = getContext("2d");
+                        ctx.clearRect(0, 0, width, height);
+                        if (game.seenVersion < 0) return;            // dependency: re-read g.seen
+                        switch (game.screen) {
+                        case "paused": Art.drawPause(ctx, game.txt); break;
+                        case "over": Art.drawResult(ctx, game.txt, game.result); break;
+                        case "help": Art.drawHelp(ctx, game.txt); break;
+                        case "codex": Art.drawCodex(ctx, game.txt, game.codexPage, game.g.seen, Render.sprite); break;
+                        }
+                    }
+                }
+
+                // keyboard and mouse: only while this item has the focus
+                Item {
+                    id: keys
+                    objectName: "neurodefenderKeys"
+                    x: 0; y: Render.HUD_TOP * game.arenaScale
+                    width: parent.width; height: Config.ARENA_H * game.arenaScale
+                    focus: true
+                    Keys.onPressed: (event) => game.keyPressed(event)
+                    Keys.onReleased: (event) => game.keyReleased(event)
+                    onActiveFocusChanged: if (!activeFocus) game.pause()
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onPressed: (mouse) => {
+                            keys.forceActiveFocus();
+                            if (game.screen !== "play") return;
+                            if (mouse.button === Qt.RightButton) { game.input.bomb = true; return; }
+                            game.input.fire = true;
+                            game.input.pointer = true;
+                            game.input.px = mouse.x / game.arenaScale;
+                            game.input.py = mouse.y / game.arenaScale;
+                        }
+                        onPositionChanged: (mouse) => {
+                            game.input.px = mouse.x / game.arenaScale;
+                            game.input.py = mouse.y / game.arenaScale;
+                        }
+                        onReleased: (mouse) => {
+                            if (mouse.button === Qt.LeftButton) { game.input.fire = false; game.input.pointer = false; }
+                        }
+                    }
+                }
+
+                // the menu of the current screen (above the click area)
+                PixelMenu {
+                    id: menu
+                    unit: game.arenaScale
+                    blink: game.frame
+                    items: game.active ? game.menuItems() : []
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: (game.screen === "title" ? 84 : (game.screen === "paused" ? 112
+                        : (game.screen === "over" ? 148 : (game.screen === "demo" ? 236 : 245)))) * game.arenaScale
+                    visible: game.screen !== "play"
+                    onActivated: (act) => { game.menuAction(act); keys.forceActiveFocus(); }
+                }
+
+                // title footer: the installation note and the record
+                PixelText {
+                    visible: game.screen === "title"
+                    anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 170 * game.arenaScale }
+                    text: game.hudBest > 0 ? game.txt.hiScore + " " + game.hudBest : game.txt.menuHint
+                    color: "#FFD166"
+                    unit: game.arenaScale
+                }
+
+                // demo caption
+                PixelText {
+                    visible: game.screen === "demo"
+                    anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 190 * game.arenaScale }
+                    text: game.txt.demo
+                    px: 2
+                    gradient: (game.frame >> 4) % 2 ? "gold" : "chrome"
+                    unit: game.arenaScale
+                }
+                PixelText {
+                    visible: game.screen === "demo"
+                    anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 216 * game.arenaScale }
+                    text: game.txt.pressEnter
+                    color: "#FFFFFF"
+                    unit: game.arenaScale
+                }
+
+                // new record on the results
+                PixelText {
+                    visible: game.screen === "over" && game.newRecord
+                    anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 130 * game.arenaScale }
+                    text: game.txt.newRecord
+                    color: (game.frame >> 3) % 2 ? "#FFD166" : "#FFFFFF"
+                    unit: game.arenaScale
+                }
+
+                // achievement toast
+                Rectangle {
+                    visible: game.toastTime > 0
+                    anchors { right: parent.right; top: parent.top; margins: 16 * game.arenaScale }
+                    width: toast.width + 8 * game.arenaScale
+                    height: toast.height + 6 * game.arenaScale
+                    color: "#1A1240"
+                    border.color: "#FFD166"
+                    border.width: Math.max(1, Math.round(game.arenaScale))
+                    PixelText {
+                        id: toast
+                        anchors.centerIn: parent
+                        text: game.toastText
+                        color: "#FFD166"
+                        unit: game.arenaScale
+                    }
+                }
+            }
+
+            // right panel: the capsules and the keys
+            Item {
+                visible: game.panels
+                width: game.panelW * game.arenaScale
+                height: game.screenH * game.arenaScale
+                Canvas {
+                    id: rightPanel
+                    width: game.panelW
+                    height: game.screenH
+                    scale: game.arenaScale
+                    transformOrigin: Item.TopLeft
+                    smooth: false
+                    onPaint: {
+                        const ctx = getContext("2d");
+                        Art.drawRightPanel(ctx, { width: width, height: height,
+                                                  labels: { capsules: game.txt.pickupsTitle, short: game.txt.pickupShort,
+                                                            keys: game.txt.panelKeys } });
+                    }
+                }
+            }
+        }
     }
 }

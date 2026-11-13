@@ -7,13 +7,13 @@ Arcade de tiro vertical no estilo dos sharewares de 1997, mostrado na etapa
 Calamares). A instalação segue sozinha: a barra de progresso e a mensagem de
 status reais do Calamares ficam embaixo da área do jogo.
 
-![O jogo no Calamares, durante uma instalação real em VM](calamares-partida.png)
+![Partida: placar no alto; vidas, bombas, energia, arma e combo no rodapé](partida-hud.png)
 
 | | |
 |---|---|
-| ![Título no Calamares](calamares-titulo.png) | ![Cortex Bastion, chefe do setor 3](chefe-bastion.png) |
-| ![Neural Overmind e nanobots combinados](overmind.png) | ![Banco de Nanobots](banco-de-nanobots.png) |
-| ![Na sessão Wayland (wlmaker)](wayland-partida.png) | |
+| ![Menu inicial](titulo.png) | ![Banco de Nanobots com as imagens das naves](banco-de-nanobots.png) |
+| ![Demonstração diante de um chefe](demonstracao.png) | ![O jogo no Calamares, numa instalação real em VM (primeira versão do visual)](calamares-partida.png) |
+| ![Cortex Bastion, chefe do setor 3 (primeira versão do visual)](chefe-bastion.png) | ![Na sessão Wayland (wlmaker; primeira versão do visual)](wayland-partida.png) |
 
 ## Para quem joga
 
@@ -26,6 +26,8 @@ status reais do Calamares ficam embaixo da área do jogo.
 | Pausa | P (ou o botão II da barra de título) |
 | Som | M (desligado por padrão) |
 | Como jogar | H |
+| Menus | Setas e Enter, ou o mouse (passe por cima e clique) |
+| Páginas do Banco de Nanobots | ← → |
 | Iniciar / jogar de novo | Enter |
 
 A arena só recebe o teclado quando tem o foco (um clique nela, ou Tab):
@@ -41,6 +43,9 @@ as teclas continuam funcionando normalmente no resto do instalador.
 - **Cápsulas:** S (tiro espalhado), R (tiro rápido), L (laser neural),
   O (escudo), B (bomba), + (reparo) e 1 (vida). A letra identifica cada uma
   sem depender da cor.
+- **Nave que evolui:** a primeira cápsula S dá canhões laterais, a segunda
+  asas douradas e tiro triplo; o tiro rápido aumenta as chamas e o laser
+  acende um cristal no nariz da nave.
 - **Extras:**
   - combo de até ×4 e bônus por quase acerto (*near miss*);
   - dificuldade que se adapta ao jogador;

@@ -5,6 +5,15 @@
 // purpose: they are the arcade's "cabinet art".
 
 var en = {
+    mapTitle: "SECTOR MAP",
+    pickupShort: { spread: "SPREAD", rapid: "RAPID", laser: "LASER", shield: "SHIELD", bomb: "BOMB", repair: "REPAIR", life: "LIFE" },
+    pickupMedium: { spread: "SPREAD SHOT", rapid: "RAPID FIRE", laser: "NEURAL LASER", shield: "ENERGY SHIELD",
+                    bomb: "EXTRA BOMB", repair: "REPAIR CELL", life: "EXTRA LIFE" },
+    panelKeys: [["P", "PAUSE"], ["B", "BOMB"], ["M", "SOUND"], ["H", "HELP"]],
+    helpKeys: [["ARROWS/WASD", "MOVE"], ["SPACE", "FIRE"], ["B", "BOMB"], ["P", "PAUSE"], ["M", "SOUND"],
+               ["H", "HELP"], ["ENTER", "PLAY"], ["MOUSE", "STEER + FIRE"]],
+    pressEnter: "PRESS ENTER TO PLAY",
+    menuHint: "UP/DOWN + ENTER",
     subtitle: "NANOBOT CRISIS",
     tagline: "Your Mind Is Under Attack!",
     motto: "Defend Your Mind. Destroy the Nanobots.",
@@ -94,6 +103,7 @@ var en = {
               "Phantom Neurons", "Cortex Inferno", "Quantum Synapse", "The Neural Core"],
     codexUnknown: "??? not met yet",
     codexEntries: [
+        ["ship", "Neural Defender", "Your ship. S capsules grow it from PULSE to TWIN to TRIPLE; L adds the laser crystal."],
         ["basic", "Drone", "Holds the formation, swoops in zigzag and fires slowly."],
         ["split", "Splitter", "Divides into two fast clones when hit. Clones never split again."],
         ["shield", "Bulwark", "A frontal shield stops straight shots. Angled shots, the laser or a bomb break it."],
@@ -115,6 +125,15 @@ var en = {
 };
 
 var pt = {
+    mapTitle: "MAPA NEURAL",
+    pickupShort: { spread: "ESPALHA", rapid: "RÁPIDO", laser: "LASER", shield: "ESCUDO", bomb: "BOMBA", repair: "REPARO", life: "VIDA" },
+    pickupMedium: { spread: "TIRO ESPALHADO", rapid: "TIRO RÁPIDO", laser: "LASER NEURAL", shield: "ESCUDO",
+                    bomb: "BOMBA EXTRA", repair: "REPARO", life: "VIDA EXTRA" },
+    panelKeys: [["P", "PAUSA"], ["B", "BOMBA"], ["M", "SOM"], ["H", "AJUDA"]],
+    helpKeys: [["SETAS/WASD", "MOVER"], ["ESPAÇO", "ATIRAR"], ["B", "BOMBA"], ["P", "PAUSA"], ["M", "SOM"],
+               ["H", "AJUDA"], ["ENTER", "JOGAR"], ["MOUSE", "GUIAR + ATIRAR"]],
+    pressEnter: "APERTE ENTER PARA JOGAR",
+    menuHint: "SETAS + ENTER",
     subtitle: "NANOBOT CRISIS",
     tagline: "Sua mente está sob ataque!",
     motto: "Defenda sua mente. Destrua os nanobots.",
@@ -204,6 +223,7 @@ var pt = {
               "Phantom Neurons", "Cortex Inferno", "Quantum Synapse", "The Neural Core"],
     codexUnknown: "??? ainda não encontrado",
     codexEntries: [
+        ["ship", "Neural Defender", "Sua nave. Cápsulas S a fazem crescer de PULSO a DUPLO e TRIPLO; L acrescenta o cristal do laser."],
         ["basic", "Drone", "Mantém a formação, mergulha em zigue-zague e atira devagar."],
         ["split", "Splitter", "Divide-se em dois clones rápidos ao ser atingido. Os clones não se dividem de novo."],
         ["shield", "Bulwark", "Um escudo frontal para tiros retos. Tiros em ângulo, o laser ou a bomba o quebram."],
