@@ -563,7 +563,7 @@ display_manager_service=$(readlink -f /etc/systemd/system/display-manager.servic
 display_manager=${display_manager_service##*/}
 display_manager=${display_manager%.service}
 case $display_manager in
-sddm | gdm | lightdm | lxdm) ;;
+sddm | gdm | lightdm | lxdm | wdm) ;;
 *) display_manager=unknown ;;
 esac
 # LightDM may omit this for X11 live sessions.
