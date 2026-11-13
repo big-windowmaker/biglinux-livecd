@@ -1,9 +1,16 @@
-/* Big WindowMaker: slideshow shown while the system is installed.
+/* Big WindowMaker: what the installer shows while the system is installed.
  *
- * Classic OPENSTEP look: a gray panel with a raised border, a title bar like
- * Window Maker's, and the logo. Colors come from the active Qt palette (the
- * Kvantum OPENSTEP theme of the live session), so the light and the dark
- * themes both read well. No timers run while the page is not shown.
+ * The NeuroDefender arcade game (neurodefender/GameRoot.qml), loaded only when
+ * the installation step starts (Calamares slideshow API 2: onActivate /
+ * onLeave). The installation never waits for it: Calamares draws its real
+ * progress bar and status line below this area.
+ *
+ * Fallback: the classic slides below — a gray OPENSTEP panel with a raised
+ * border, a title bar like Window Maker's, and the logo. They show while the
+ * game loads, if it cannot be loaded, or if it stops with an error. Colors
+ * come from the active Qt palette (the Kvantum OPENSTEP theme of the live
+ * session), so the light and the dark themes both read well. No timers run
+ * while the page is not shown.
  */
 pragma ComponentBehavior: Bound
 
@@ -19,6 +26,9 @@ Rectangle {
     property bool activatedInCalamares: false
     property int current: 0
     readonly property bool portuguese: Qt.locale().name.indexOf("pt") === 0
+    // the game, unless it failed; the slides otherwise
+    property bool gameFailed: false
+    readonly property bool gameShown: !gameFailed && game.status === Loader.Ready && game.item !== null
 
     SystemPalette { id: palette; colorGroup: SystemPalette.Active }
 
@@ -45,19 +55,52 @@ Rectangle {
                "Big WindowMaker uses the base, the programs and the support of BigLinux."] }
     ]
 
-    function onActivate() { activatedInCalamares = true; current = 0 }
-    function onLeave() { activatedInCalamares = false }
+    function onActivate() {
+        activatedInCalamares = true;
+        current = 0;
+        if (game.item) game.item.activate();
+    }
+    function onLeave() {
+        activatedInCalamares = false;
+        if (game.item) game.item.deactivate();
+    }
+
+    // Loaded on the first activation, in the background: the installer's
+    // start-up never parses the game.
+    Loader {
+        id: game
+        objectName: "neurodefenderLoader"
+        anchors.fill: parent
+        focus: true                      // keyboard users reach the arena with Tab, no click needed
+        z: 1
+        active: root.activatedInCalamares || status === Loader.Ready
+        asynchronous: true
+        source: "neurodefender/GameRoot.qml"
+        visible: root.gameShown
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.warn("NeuroDefender could not be loaded; showing the slides");
+                root.gameFailed = true;
+            }
+        }
+        onLoaded: {
+            item.failure.connect(function() { root.gameFailed = true; });
+            if (root.activatedInCalamares) item.activate();
+        }
+    }
 
     Timer {
+        objectName: "slidesTimer"
         interval: 7000
         repeat: true
-        running: root.activatedInCalamares && root.visible
+        running: root.activatedInCalamares && root.visible && !root.gameShown
         onTriggered: root.current = (root.current + 1) % root.slides.length
     }
 
     // The panel: Window Maker's relief (light top-left, dark bottom-right).
     Rectangle {
         id: panel
+        visible: !root.gameShown
         anchors.centerIn: parent
         width: Math.min(parent.width - 48, 640)
         height: Math.min(parent.height - 32, 360)
