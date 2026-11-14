@@ -59,6 +59,16 @@ if [[ ${XDG_RUNTIME_DIR:-} =~ ^/run/user/[0-9]+$ && -d ${XDG_RUNTIME_DIR:-} &&
 	installer_environment+=("WAYLAND_DISPLAY=$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY")
 fi
 append_safe_environment XAUTHORITY "${XAUTHORITY:-}" '^/[^[:cntrl:]]+$'
+# wdm (like xdm) exports XAUTHORITY only when the cookie is not in the user's
+# ~/.Xauthority. The user's own programs find it there by default, but root
+# (HOME=/root) would not, and the installer failed with "Authorization
+# required" in the live session started by wdm.
+if [[ -z ${XAUTHORITY:-} && -n ${DISPLAY:-} ]]; then
+	live_home=$(getent passwd -- "$live_user" | cut -d: -f6) || live_home=
+	if [[ $live_home == /* && -f $live_home/.Xauthority ]]; then
+		append_safe_environment XAUTHORITY "$live_home/.Xauthority" '^/[^[:cntrl:]]+$'
+	fi
+fi
 append_safe_environment DBUS_SESSION_BUS_ADDRESS "${DBUS_SESSION_BUS_ADDRESS:-}" '^[^[:space:][:cntrl:]]+$'
 append_safe_environment LANG "${LANG:-}" '^[A-Za-z0-9_.@-]+$'
 append_safe_environment LANGUAGE "${LANGUAGE:-}" '^[A-Za-z0-9_.@:-]+$'

@@ -742,6 +742,60 @@ def test_privileged_installer_uses_a_minimal_environment() -> None:
     assert arguments.rstrip().endswith("/usr/bin/calamares-biglinux")
 
 
+def test_privileged_installer_finds_the_default_xauthority() -> None:
+    # wdm, like xdm, leaves XAUTHORITY unset when the cookie is in the
+    # user's ~/.Xauthority; root (HOME=/root) needs the path.
+    with tempfile.TemporaryDirectory(
+        prefix=".test-polkit-", dir=REPOSITORY
+    ) as directory:
+        test_directory = Path(directory)
+        stubs = test_directory / "stubs"
+        stubs.mkdir()
+        home = test_directory / "home"
+        home.mkdir()
+        (home / ".Xauthority").write_bytes(b"cookie")
+        log = test_directory / "sudo-arguments"
+        make_stub(stubs, "id", "printf '1000\\n'")
+        make_stub(stubs, "gsettings", "exit 1")
+        make_stub(stubs, "dbus-send", "exit 1")
+        make_stub(
+            stubs,
+            "getent",
+            f"printf 'liveuser:x:1000:1000::{home}:/bin/bash\\n'",
+        )
+        make_stub(stubs, "sudo", 'printf "%s\\n" "$@" >"$TEST_LOG"')
+        wrapper = PACKAGE / "usr/bin/calamares-biglinux_polkit"
+        environment = {
+            "PATH": f"{stubs}:/usr/bin:/bin",
+            "USER": "liveuser",
+            "DISPLAY": ":0",
+            "TEST_LOG": str(log),
+        }
+        result = subprocess.run(
+            [str(wrapper)], check=False, capture_output=True, text=True,
+            env=environment,
+        )
+        assert result.returncode == 0, result.stderr
+        assert f"XAUTHORITY={home}/.Xauthority\n" in log.read_text(encoding="utf-8")
+
+        # An exported XAUTHORITY wins; without the file nothing is added.
+        result = subprocess.run(
+            [str(wrapper)], check=False, capture_output=True, text=True,
+            env={**environment, "XAUTHORITY": "/run/wdm/auth-1"},
+        )
+        assert result.returncode == 0, result.stderr
+        arguments = log.read_text(encoding="utf-8")
+        assert "XAUTHORITY=/run/wdm/auth-1\n" in arguments
+        assert f"{home}/.Xauthority" not in arguments
+        (home / ".Xauthority").unlink()
+        result = subprocess.run(
+            [str(wrapper)], check=False, capture_output=True, text=True,
+            env=environment,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "XAUTHORITY" not in log.read_text(encoding="utf-8")
+
+
 def test_installer_waits_in_one_foreground_flow() -> None:
     launcher = (PACKAGE / "usr/bin/calamares-biglinux").read_text(encoding="utf-8")
     assert "integrity-wait" in launcher

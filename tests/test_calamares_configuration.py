@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -824,3 +825,63 @@ def check_luks_tuning(profile) -> None:
     # recorded passphrase must not abort an install that already partitioned.
     assert 'partition.get("mountPoint") in ("/", "/boot")' in module
     assert "leaving its keyslots alone" in module
+
+
+def _clock_guard_command() -> str:
+    config = yaml.safe_load(
+        (
+            REPOSITORY
+            / "biglinux-livecd/usr/share/biglinux/calamares-profiles"
+            / "bigwindowmaker/modules/shellprocess_initialize_pacman.conf"
+        ).read_text(encoding="utf-8")
+    )
+    commands = [
+        item["command"] if isinstance(item, dict) else item
+        for item in config["script"]
+    ]
+    # The guard runs between --init and --populate.
+    assert commands[0] == "pacman-key --init"
+    assert commands[2] == "pacman-key --populate archlinux manjaro biglinux"
+    return commands[1]
+
+
+@pytest.mark.parametrize(
+    ("now", "moved"),
+    [(1_757_600_000, True), (1_800_000_000, False)],
+)
+def test_offline_install_moves_a_clock_behind_the_keyrings(
+    tmp_path: Path, now: int, moved: bool
+) -> None:
+    # A machine whose clock is behind (offline, flat CMOS battery) saw the
+    # newest BigLinux key as created in the future and --populate failed.
+    keyrings = tmp_path / "keyrings"
+    keyrings.mkdir()
+    for name, mtime in (("archlinux.gpg", 1_700_000_000), ("biglinux.gpg", 1_760_000_000)):
+        path = keyrings / name
+        path.write_bytes(b"")
+        os.utime(path, (mtime, mtime))
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    log = tmp_path / "date.log"
+    date = stubs / "date"
+    date.write_text(
+        "#!/bin/sh\n"
+        f'if [ "$1" = +%s ]; then echo {now}; else echo "$@" >"{log}"; fi\n',
+        encoding="utf-8",
+    )
+    date.chmod(0o755)
+    command = _clock_guard_command().replace(
+        "/usr/share/pacman/keyrings", str(keyrings)
+    )
+    result = subprocess.run(
+        ["/bin/sh", "-c", command],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={"PATH": f"{stubs}:/usr/bin:/bin"},
+    )
+    assert result.returncode == 0, result.stderr
+    if moved:
+        assert log.read_text(encoding="utf-8").split() == ["-u", "-s", "@1760000000"]
+    else:
+        assert not log.exists()
