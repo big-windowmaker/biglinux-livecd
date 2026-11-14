@@ -86,6 +86,7 @@ big_wm_kdeglobals() {
 	function rgb(key, fallback,  c, a, r, g, b) {
 		c = (key in col) ? col[key] : fallback
 		if (c !~ /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/) c = fallback
+		if (c ~ /^[0-9]+,[0-9]+,[0-9]+$/) return c   # fallback já convertido
 		r = hex(substr(c, 2, 2)); g = hex(substr(c, 4, 2)); b = hex(substr(c, 6, 2))
 		a = length(c) == 9 ? hex(substr(c, 8, 2)) / 255 : 1
 		if (a < 1) { r = r * a + wr * (1 - a); g = g * a + wg * (1 - a); b = b * a + wb * (1 - a) }

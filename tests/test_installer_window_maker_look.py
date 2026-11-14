@@ -320,6 +320,11 @@ def test_kdeglobals_follow_the_kvantum_theme(tmp_path: Path) -> None:
         assert view["BackgroundNormal"] == ("46,46,46" if dark else "170,170,170")
         assert view["ForegroundNormal"] == ("230,230,230" if dark else "0,0,0")
         assert groups["Colors:Selection"]["ForegroundNormal"] == "0,0,0"
+        # sem tooltip.*, alt.base nem button.* no tema, as cores vêm de outras
+        # já convertidas ("r,g,b"), sem passar de novo pelo leitor de hex
+        assert groups["Colors:Tooltip"]["BackgroundNormal"] == view["BackgroundNormal"]
+        assert groups["Colors:Tooltip"]["ForegroundNormal"] == view["ForegroundNormal"]
+        assert view["BackgroundAlternate"] == view["BackgroundNormal"]
         for group in ("Colors:Window", "Colors:View", "Colors:Button", "Colors:Selection"):
             values = groups[group]
             assert _contrast(values["ForegroundNormal"], values["BackgroundNormal"]) >= 4.5, group
