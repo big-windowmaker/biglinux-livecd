@@ -1,0 +1,20 @@
+#!/bin/sh
+# Offline, nothing corrects a clock that is behind (a flat CMOS battery, a
+# machine kept off for months): gpg then sees the newest keys as created in
+# the future, skips them, and "pacman-key --populate" fails, aborting the
+# installation. The keyrings are never older than their keys, so a clock
+# behind them is wrong for sure: move it forward to them. A clock that is
+# right, or ahead, is left alone. The hwclock module saves it later.
+#
+# Usage: clock-not-before-keyrings [KEYRING_DIRECTORY]
+keyrings=${1:-/usr/share/pacman/keyrings}
+newest=0
+for keyring in "$keyrings"/*.gpg; do
+	[ -f "$keyring" ] || continue
+	mtime=$(stat -c %Y -- "$keyring") || continue
+	[ "$mtime" -gt "$newest" ] && newest=$mtime
+done
+[ "$newest" -gt 0 ] || exit 0
+[ "$(date +%s)" -lt "$newest" ] || exit 0
+echo "clock-not-before-keyrings: clock behind the keyrings, set to @$newest"
+date -u -s "@$newest" >/dev/null

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -824,3 +825,70 @@ def check_luks_tuning(profile) -> None:
     # recorded passphrase must not abort an install that already partitioned.
     assert 'partition.get("mountPoint") in ("/", "/boot")' in module
     assert "leaving its keyslots alone" in module
+
+
+
+BIGWM_PROFILE = (
+    REPOSITORY / "biglinux-livecd/usr/share/biglinux/calamares-profiles/bigwindowmaker"
+)
+
+
+def test_clock_check_runs_in_the_live_system_before_pacman_key() -> None:
+    settings = yaml.safe_load((BIGWM_PROFILE / "settings.conf").read_text(encoding="utf-8"))
+    executed = [step for phase in settings["sequence"] for step in phase.get("exec", [])]
+    assert executed.index("shellprocess@clock_from_keyrings") + 1 == executed.index(
+        "shellprocess@initialize_pacman"
+    )
+    config = yaml.safe_load(
+        (BIGWM_PROFILE / "modules/shellprocess_clock_from_keyrings.conf").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert config["dontChroot"] is True
+    # Calamares expands $NAME in shellprocess commands itself and refuses
+    # unknown names: the logic lives in a script, the command has no $.
+    commands = [item["command"] for item in config["script"]]
+    assert commands == ["/usr/lib/biglinux-livecd/clock-not-before-keyrings"]
+    assert all("$" not in command for command in commands)
+
+
+@pytest.mark.parametrize(
+    ("now", "moved"),
+    [(1_757_600_000, True), (1_800_000_000, False)],
+)
+def test_offline_install_moves_a_clock_behind_the_keyrings(
+    tmp_path: Path, now: int, moved: bool
+) -> None:
+    # A machine whose clock is behind (offline, flat CMOS battery) saw the
+    # newest BigLinux key as created in the future and --populate failed.
+    keyrings = tmp_path / "keyrings"
+    keyrings.mkdir()
+    for name, mtime in (("archlinux.gpg", 1_700_000_000), ("biglinux.gpg", 1_760_000_000)):
+        path = keyrings / name
+        path.write_bytes(b"")
+        os.utime(path, (mtime, mtime))
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    log = tmp_path / "date.log"
+    date = stubs / "date"
+    date.write_text(
+        "#!/bin/sh\n"
+        f'if [ "$1" = +%s ]; then echo {now}; else echo "$@" >"{log}"; fi\n',
+        encoding="utf-8",
+    )
+    date.chmod(0o755)
+    result = subprocess.run(
+        [
+            str(REPOSITORY / "biglinux-livecd/usr/lib/biglinux-livecd/clock-not-before-keyrings"),
+            str(keyrings),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={"PATH": f"{stubs}:/usr/bin:/bin"},
+    )
+    assert result.returncode == 0, result.stderr
+    if moved:
+        assert log.read_text(encoding="utf-8").split() == ["-u", "-s", "@1760000000"]
+    else:
+        assert not log.exists()
