@@ -2,6 +2,7 @@ import io.calamares.ui 1.0
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import "i18n.js" as I18n
 
@@ -14,7 +15,12 @@ Page {
     readonly property string localeKey: Qt.locale().name + "|" + qsTr("__biglinux_language_marker__")
     readonly property bool installationSucceeded: !config.failed
 
-    readonly property color accentColor: installationSucceeded ? "#2E9E63" : "#D08014"
+    // Green or amber, dark on the light palette and light on the dark one:
+    // the mid tones were about 1.4:1 on OPENSTEP gray.
+    readonly property bool darkPalette: palette.window.hslLightness < 0.5
+    readonly property color accentColor: installationSucceeded
+        ? (darkPalette ? "#5fd3a0" : "#0b5e3c")
+        : (darkPalette ? "#f5a35c" : "#8a3b00")
     readonly property color mutedText: Qt.rgba(
         palette.text.r, palette.text.g, palette.text.b, 0.68
     )
@@ -105,10 +111,11 @@ Page {
                         root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.16
                     )
 
-                    Image {
+                    IconImage {
                         anchors.centerIn: parent
                         width: 44
                         height: 44
+                        color: root.accentColor
                         source: root.installationSucceeded
                             ? "visuals/status-check.svg"
                             : "visuals/status-alert.svg"

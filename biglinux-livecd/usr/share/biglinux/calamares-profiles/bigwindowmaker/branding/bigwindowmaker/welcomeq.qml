@@ -33,6 +33,13 @@ Page {
 
     function onLeave() { activatedInCalamares = false }
 
+    // Secondary text, opaque: palette.placeholderText is the text at half
+    // alpha (about 3.5:1 on the QTStep themes); 72 % of it over the page keeps
+    // the hierarchy above 4.5:1 on light and dark palettes.
+    readonly property bool darkPalette: palette.window.hslLightness < 0.5
+    readonly property color secondaryText: Qt.tint(palette.window, Qt.rgba(
+        palette.windowText.r, palette.windowText.g, palette.windowText.b, 0.72))
+
     padding: 0
     background: Rectangle { color: root.palette.window }
 
@@ -229,7 +236,7 @@ Page {
                             required property string negatedText
                             width: ListView.view.width
                             text: "• " + negatedText
-                            color: mandatory ? root.palette.windowText : root.palette.placeholderText
+                            color: mandatory ? root.palette.windowText : root.secondaryText
                             wrapMode: Text.WordWrap
                         }
                     }

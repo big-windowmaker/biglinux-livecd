@@ -3,6 +3,7 @@ import io.calamares.ui 1.0
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import "components"
 import "i18n.js" as I18n
@@ -25,6 +26,18 @@ Page {
             .replace(/BigLinux/g, Branding.string(Branding.ProductName))
     }
 
+
+    // Secondary text, opaque: palette.placeholderText is the text at half
+    // alpha (about 3.5:1 on the QTStep themes); 72 % of it over the page keeps
+    // the hierarchy above 4.5:1 on light and dark palettes.
+    readonly property bool darkPalette: palette.window.hslLightness < 0.5
+    readonly property color secondaryText: Qt.tint(palette.window, Qt.rgba(
+        palette.windowText.r, palette.windowText.g, palette.windowText.b, 0.72))
+    // The brand blue of the section icons, darker on the light palette
+    // (#2496d8 is 1.4:1 on OPENSTEP gray); green/red the same way.
+    readonly property color accentInk: darkPalette ? "#4aa8e8" : "#0b4f80"
+    readonly property color goodInk: darkPalette ? "#81c784" : "#004000"
+    readonly property color badInk: darkPalette ? "#ff8a80" : "#7a0000"
 
     padding: 20
     background: Rectangle { color: root.palette.window }
@@ -58,10 +71,11 @@ Page {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        Image {
+                        IconImage {
                             Layout.preferredWidth: 28
                             Layout.preferredHeight: 28
                             source: "visuals/identity.svg"
+                            color: root.accentInk
                             fillMode: Image.PreserveAspectFit
                             smooth: true
                             mipmap: true
@@ -107,7 +121,7 @@ Page {
                                 Layout.fillWidth: true
                                 visible: config.loginNameStatus !== ""
                                 text: config.loginNameStatus
-                                color: root.palette.placeholderText
+                                color: root.secondaryText
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -128,7 +142,7 @@ Page {
                                 Layout.fillWidth: true
                                 visible: config.hostnameStatus !== ""
                                 text: config.hostnameStatus
-                                color: root.palette.placeholderText
+                                color: root.secondaryText
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -144,10 +158,11 @@ Page {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        Image {
+                        IconImage {
                             Layout.preferredWidth: 28
                             Layout.preferredHeight: 28
                             source: "visuals/lock.svg"
+                            color: root.accentInk
                             fillMode: Image.PreserveAspectFit
                             smooth: true
                             mipmap: true
@@ -198,7 +213,7 @@ Page {
                             Layout.preferredWidth: 8
                             Layout.preferredHeight: 8
                             radius: 4
-                            color: repeatField.text === passwordField.text ? "#2E7D32" : "#B00020"
+                            color: repeatField.text === passwordField.text ? root.goodInk : root.badInk
                         }
 
                         Label {
@@ -206,7 +221,7 @@ Page {
                             text: repeatField.text === passwordField.text
                                   ? root.tr("The passwords match.")
                                   : root.tr("The passwords do not match.")
-                            color: repeatField.text === passwordField.text ? "#2E7D32" : "#B00020"
+                            color: repeatField.text === passwordField.text ? root.goodInk : root.badInk
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -217,7 +232,7 @@ Page {
                                  && config.userPasswordMessage !== "OK!"
                                  && config.userPasswordMessage !== "OK"
                         text: config.userPasswordMessage
-                        color: root.palette.placeholderText
+                        color: root.secondaryText
                         wrapMode: Text.WordWrap
                     }
 
@@ -313,11 +328,12 @@ Page {
                         // back to a question mark while the field was empty,
                         // and that question mark read as an error rather than
                         // as a field still to fill.
-                        Image {
+                        IconImage {
                             anchors.centerIn: parent
                             width: 46
                             height: width
                             source: "icons/users.svg"
+                            color: root.palette.highlightedText
                             sourceSize.width: width
                             sourceSize.height: height
                             fillMode: Image.PreserveAspectFit
@@ -346,10 +362,11 @@ Page {
                         Layout.fillWidth: true
                         spacing: 7
 
-                        Image {
+                        IconImage {
                             Layout.preferredWidth: 20
                             Layout.preferredHeight: 20
                             source: "visuals/computer.svg"
+                            color: root.accentInk
                             fillMode: Image.PreserveAspectFit
                             smooth: true
                             mipmap: true
@@ -358,7 +375,7 @@ Page {
                         Label {
                             Layout.fillWidth: true
                             text: config.hostname
-                            color: root.palette.placeholderText
+                            color: root.secondaryText
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideMiddle
                         }

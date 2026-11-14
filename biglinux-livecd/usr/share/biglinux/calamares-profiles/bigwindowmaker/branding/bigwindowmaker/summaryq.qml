@@ -3,6 +3,7 @@ import io.calamares.ui 1.0
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import "components"
 import "i18n.js" as I18n
@@ -30,6 +31,16 @@ Page {
         if (index === 2) return "visuals/badge-partition.svg"
         if (index === 3) return "visuals/badge-users.svg"
         return "visuals/badge-summary.svg"
+    }
+
+    // The line icons are tinted (IconImage) in their hue, dark on the light
+    // palette and light on the dark one: the original mid tones were about
+    // 1.5:1 on OPENSTEP gray (the purple keyboard all but vanished).
+    function badgeInk(index) {
+        if (index === 1) return darkPalette ? "#b79cfa" : "#4c1d95"
+        if (index === 2) return darkPalette ? "#5fd3a0" : "#0b5e3c"
+        if (index === 3) return darkPalette ? "#f5a35c" : "#8a3b00"
+        return darkPalette ? "#6cb8f0" : "#0b4f80"
     }
 
     function badgeTint(index) {
@@ -99,6 +110,13 @@ Page {
         return bold ? bold[1] : translated
     }
 
+    // Secondary text, opaque: palette.placeholderText is the text at half
+    // alpha (about 3.5:1 on the QTStep themes); 72 % of it over the page keeps
+    // the hierarchy above 4.5:1 on light and dark palettes.
+    readonly property bool darkPalette: palette.window.hslLightness < 0.5
+    readonly property color secondaryText: Qt.tint(palette.window, Qt.rgba(
+        palette.windowText.r, palette.windowText.g, palette.windowText.b, 0.72))
+
     padding: 24
     background: Rectangle { color: root.palette.window }
 
@@ -156,11 +174,12 @@ Page {
                         radius: 17
                         color: Qt.rgba(0.13, 0.52, 0.82, 0.22)
 
-                        Image {
+                        IconImage {
                             anchors.centerIn: parent
                             width: 20
                             height: 20
                             source: "visuals/review-shield.svg"
+                            color: root.badgeInk(0)
                             sourceSize.width: width
                             sourceSize.height: height
                             fillMode: Image.PreserveAspectFit
@@ -181,7 +200,7 @@ Page {
                         Label {
                             Layout.fillWidth: true
                             text: root.tr("You can still go back and adjust any choice before starting the installation.")
-                            color: root.palette.placeholderText
+                            color: root.secondaryText
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -216,11 +235,12 @@ Page {
                         radius: 17
                         color: Qt.rgba(0.91, 0.51, 0.13, 0.22)
 
-                        Image {
+                        IconImage {
                             anchors.centerIn: parent
                             width: 20
                             height: 20
                             source: "visuals/status-alert.svg"
+                            color: root.badgeInk(3)
                             sourceSize.width: width
                             sourceSize.height: height
                             fillMode: Image.PreserveAspectFit
@@ -243,7 +263,7 @@ Page {
             Layout.fillWidth: true
             visible: config.message !== ""
             text: config.message
-            color: root.palette.placeholderText
+            color: root.secondaryText
             wrapMode: Text.WordWrap
         }
 
@@ -275,11 +295,12 @@ Page {
                         radius: 20
                         color: root.badgeTint(index)
 
-                        Image {
+                        IconImage {
                             anchors.centerIn: parent
                             width: 22
                             height: 22
                             source: root.badgeIcon(index)
+                            color: root.badgeInk(index)
                             sourceSize.width: width
                             sourceSize.height: height
                             fillMode: Image.PreserveAspectFit
