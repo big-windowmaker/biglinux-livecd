@@ -17,7 +17,9 @@ depends=(
     'dbus'
     'e2fsprogs'
     'gettext'
+    'glib2'
     'gtk4'
+    'hicolor-icon-theme'
     'libadwaita'
     'mtools'
     'python'
@@ -28,12 +30,14 @@ depends=(
     'sudo'
     'util-linux'
     'xdg-user-dirs'
+    'xorg-setxkbmap'
     'xorg-xrandr'
 )
 optdepends=(
     'speech-dispatcher: spoken feedback in the live-session wizard'
     'openssh: remote access to the live session with the sshenable boot argument'
     'shadow: set the temporary password the sshenable boot argument uses'
+    'qt6-multimedia: sound effects of the NeuroDefender game in the bigwindowmaker installer'
 )
 makedepends=('git')
 source=("git+https://github.com/biglinux/biglinux-livecd.git")
