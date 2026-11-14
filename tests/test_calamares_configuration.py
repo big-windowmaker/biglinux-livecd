@@ -827,22 +827,29 @@ def check_luks_tuning(profile) -> None:
     assert "leaving its keyslots alone" in module
 
 
-def _clock_guard_command() -> str:
-    config = yaml.safe_load(
-        (
-            REPOSITORY
-            / "biglinux-livecd/usr/share/biglinux/calamares-profiles"
-            / "bigwindowmaker/modules/shellprocess_initialize_pacman.conf"
-        ).read_text(encoding="utf-8")
+
+BIGWM_PROFILE = (
+    REPOSITORY / "biglinux-livecd/usr/share/biglinux/calamares-profiles/bigwindowmaker"
+)
+
+
+def test_clock_check_runs_in_the_live_system_before_pacman_key() -> None:
+    settings = yaml.safe_load((BIGWM_PROFILE / "settings.conf").read_text(encoding="utf-8"))
+    executed = [step for phase in settings["sequence"] for step in phase.get("exec", [])]
+    assert executed.index("shellprocess@clock_from_keyrings") + 1 == executed.index(
+        "shellprocess@initialize_pacman"
     )
-    commands = [
-        item["command"] if isinstance(item, dict) else item
-        for item in config["script"]
-    ]
-    # The guard runs between --init and --populate.
-    assert commands[0] == "pacman-key --init"
-    assert commands[2] == "pacman-key --populate archlinux manjaro biglinux"
-    return commands[1]
+    config = yaml.safe_load(
+        (BIGWM_PROFILE / "modules/shellprocess_clock_from_keyrings.conf").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert config["dontChroot"] is True
+    # Calamares expands $NAME in shellprocess commands itself and refuses
+    # unknown names: the logic lives in a script, the command has no $.
+    commands = [item["command"] for item in config["script"]]
+    assert commands == ["/usr/lib/biglinux-livecd/clock-not-before-keyrings"]
+    assert all("$" not in command for command in commands)
 
 
 @pytest.mark.parametrize(
@@ -870,11 +877,11 @@ def test_offline_install_moves_a_clock_behind_the_keyrings(
         encoding="utf-8",
     )
     date.chmod(0o755)
-    command = _clock_guard_command().replace(
-        "/usr/share/pacman/keyrings", str(keyrings)
-    )
     result = subprocess.run(
-        ["/bin/sh", "-c", command],
+        [
+            str(REPOSITORY / "biglinux-livecd/usr/lib/biglinux-livecd/clock-not-before-keyrings"),
+            str(keyrings),
+        ],
         check=False,
         capture_output=True,
         text=True,
