@@ -68,6 +68,64 @@ big_wm_kvantum_theme() {
 	fi
 }
 
+# A KDE color scheme (kdeglobals) with the colors of a Kvantum theme, on
+# stdout. Calamares runs with the KDE platform theme and the org.kde.desktop
+# QtQuick style, which take every color from kdeglobals; with only the Kvantum
+# theme in root's config they fell back to Breeze's light scheme, and on the
+# dark QTStep theme the QML pages showed dark text over Kvantum's dark
+# surfaces. Secondary text, links and the error/warning/success colors are
+# derived for the theme's own background so they keep a 4.5:1 contrast.
+big_wm_kdeglobals() {
+	local theme=$1
+	big_wm_kvantum_theme_installed "$theme" || return 1
+	awk -v name="$theme" '
+	function hex(s,  i, v, d) { v = 0; s = tolower(s)
+		for (i = 1; i <= length(s); i++) { d = index("0123456789abcdef", substr(s, i, 1)); if (!d) return -1; v = v * 16 + d - 1 }
+		return v }
+	# "#rrggbb[aa]" -> "r,g,b", alpha blended over the window color
+	function rgb(key, fallback,  c, a, r, g, b) {
+		c = (key in col) ? col[key] : fallback
+		if (c !~ /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/) c = fallback
+		if (c ~ /^[0-9]+,[0-9]+,[0-9]+$/) return c   # fallback já convertido
+		r = hex(substr(c, 2, 2)); g = hex(substr(c, 4, 2)); b = hex(substr(c, 6, 2))
+		a = length(c) == 9 ? hex(substr(c, 8, 2)) / 255 : 1
+		if (a < 1) { r = r * a + wr * (1 - a); g = g * a + wg * (1 - a); b = b * a + wb * (1 - a) }
+		return sprintf("%d,%d,%d", r + 0.5, g + 0.5, b + 0.5) }
+	function mix(fg, bg, t,  f, k) { split(fg, f, ","); split(bg, k, ",")
+		return sprintf("%d,%d,%d", f[1] * t + k[1] * (1 - t) + 0.5, f[2] * t + k[2] * (1 - t) + 0.5, f[3] * t + k[3] * (1 - t) + 0.5) }
+	function group(title, bg, alt, fg) {
+		printf "[Colors:%s]\nBackgroundNormal=%s\nBackgroundAlternate=%s\n", title, bg, alt
+		printf "ForegroundNormal=%s\nForegroundActive=%s\nForegroundInactive=%s\n", fg, fg, mix(fg, bg, 0.72)
+		printf "ForegroundLink=%s\nForegroundVisited=%s\n", link, visited
+		printf "ForegroundNegative=%s\nForegroundNeutral=%s\nForegroundPositive=%s\n", negative, neutral, positive
+		printf "DecorationFocus=%s\nDecorationHover=%s\n\n", focus, hover }
+	/^\[/ { in_colors = ($0 == "[GeneralColors]"); next }
+	in_colors && /=/ { k = $0; sub(/=.*/, "", k); v = $0; sub(/^[^=]*=/, "", v); gsub(/[[:space:]]/, "", k); gsub(/[[:space:]]/, "", v); col[k] = v }
+	END {
+		wr = wg = wb = 170
+		window = rgb("window.color", "#aaaaaa"); split(window, w, ","); wr = w[1]; wg = w[2]; wb = w[3]
+		dark = (0.2126 * wr + 0.7152 * wg + 0.0722 * wb) < 128
+		text = rgb("text.color", dark ? "#e6e6e6" : "#000000")
+		window_text = rgb("window.text.color", text)
+		base = rgb("base.color", window); alt = rgb("alt.base.color", base)
+		button = rgb("button.color", window); button_text = rgb("button.text.color", text)
+		selection = rgb("highlight.color", dark ? "#a8a8a8" : "#ffffff")
+		selection_text = rgb("highlight.text.color", "#000000")
+		tooltip = rgb("tooltip.base.color", base); tooltip_text = rgb("tooltip.text.color", text)
+		if (dark) { link = "138,180,248"; visited = "197,138,249"; negative = "255,138,128"; neutral = "255,204,128"; positive = "129,199,132" }
+		else { link = "0,47,135"; visited = "75,0,130"; negative = "122,0,0"; neutral = "77,48,0"; positive = "0,64,0" }
+		focus = window_text; hover = rgb("light.color", selection)
+		printf "[General]\nColorScheme=%s\n\n", name
+		group("Window", window, window, window_text)
+		group("View", base, alt, text)
+		group("Button", button, button, button_text)
+		group("Selection", selection, selection, selection_text)
+		group("Tooltip", tooltip, tooltip, tooltip_text)
+		group("Header", window, window, window_text)
+		group("Complementary", window, window, window_text)
+	}' "$big_wm_kvantum_directory/$theme/$theme.kvconfig"
+}
+
 # Environment for the GTK windows (dialogs and the installer launcher), as
 # NAME=value words in the big_wm_gtk_environment array.
 big_wm_set_gtk_environment() {

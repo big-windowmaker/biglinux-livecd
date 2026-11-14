@@ -252,3 +252,94 @@ def test_installer_windows_are_opaque_in_window_maker() -> None:
     assert dialog.rindex("BIGLINUX_WINDOW_MAKER", 0, translucent) > 0
     body = main[main.index("def load_custom_css") :]
     assert body.index("BIGLINUX_WINDOW_MAKER") < body.index("alpha(@theme_bg_color")
+
+
+def _kdeglobals(tmp_path: Path, colors: str) -> dict[str, dict[str, str]]:
+    kvantum = tmp_path / "Kvantum"
+    (kvantum / "QTStepTest").mkdir(parents=True, exist_ok=True)
+    (kvantum / "QTStepTest/QTStepTest.kvconfig").write_text(
+        f"[%General]\nfoo=1\n\n[GeneralColors]\n{colors}\n[Hacks]\nx=1\n", encoding="utf-8"
+    )
+    output = run_look(tmp_path, {}, "big_wm_kdeglobals QTStepTest\n")
+    groups: dict[str, dict[str, str]] = {}
+    current = ""
+    for line in output.splitlines():
+        if line.startswith("["):
+            current = line.strip("[]")
+            groups[current] = {}
+        elif "=" in line:
+            key, value = line.split("=", 1)
+            groups[current][key] = value
+    return groups
+
+
+def _contrast(a: str, b: str) -> float:
+    def luminance(rgb: str) -> float:
+        channels = []
+        for value in rgb.split(","):
+            c = int(value) / 255
+            channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+        return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+    hi, lo = sorted((luminance(a), luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+DARK_COLORS = """window.color=#3c3c3c
+base.color=#2e2e2e
+button.color=#464646
+light.color=#6a6a6a
+highlight.color=#a8a8a8
+text.color=#e6e6e6
+window.text.color=#e0e0e0
+button.text.color=#e6e6e6
+disabled.text.color=#e0e0e080
+highlight.text.color=#000000
+"""
+
+LIGHT_COLORS = """window.color=#aaaaaa
+base.color=#aaaaaa
+button.color=#aaaaaa
+light.color=#ffffff
+highlight.color=#ffffff
+text.color=#000000
+window.text.color=#000000
+button.text.color=#000000
+highlight.text.color=#000000
+"""
+
+
+def test_kdeglobals_follow_the_kvantum_theme(tmp_path: Path) -> None:
+    # Calamares (KDE platform theme, org.kde.desktop) takes every color from
+    # kdeglobals: without one it used Breeze's light scheme, dark text on the
+    # dark QTStep surfaces.
+    for colors, dark in ((DARK_COLORS, True), (LIGHT_COLORS, False)):
+        groups = _kdeglobals(tmp_path, colors)
+        assert groups["General"]["ColorScheme"] == "QTStepTest"
+        view, window = groups["Colors:View"], groups["Colors:Window"]
+        assert view["BackgroundNormal"] == ("46,46,46" if dark else "170,170,170")
+        assert view["ForegroundNormal"] == ("230,230,230" if dark else "0,0,0")
+        assert groups["Colors:Selection"]["ForegroundNormal"] == "0,0,0"
+        # sem tooltip.*, alt.base nem button.* no tema, as cores vêm de outras
+        # já convertidas ("r,g,b"), sem passar de novo pelo leitor de hex
+        assert groups["Colors:Tooltip"]["BackgroundNormal"] == view["BackgroundNormal"]
+        assert groups["Colors:Tooltip"]["ForegroundNormal"] == view["ForegroundNormal"]
+        assert view["BackgroundAlternate"] == view["BackgroundNormal"]
+        for group in ("Colors:Window", "Colors:View", "Colors:Button", "Colors:Selection"):
+            values = groups[group]
+            assert _contrast(values["ForegroundNormal"], values["BackgroundNormal"]) >= 4.5, group
+        # secondary text and the error/warning/success/link colors stay AA
+        for key in ("ForegroundInactive", "ForegroundNegative", "ForegroundNeutral",
+                    "ForegroundPositive", "ForegroundLink"):
+            assert _contrast(window[key], window["BackgroundNormal"]) >= 4.5, (dark, key)
+
+
+def test_kdeglobals_refuses_an_unknown_theme(tmp_path: Path) -> None:
+    output = run_look(tmp_path, {}, "big_wm_kdeglobals Missing || echo refused\n")
+    assert output == "refused\n"
+
+
+def test_launcher_writes_kdeglobals_and_drops_stale_ones() -> None:
+    launcher = LAUNCHER.read_text(encoding="utf-8")
+    assert "rm -rf -- /root/.config/Kvantum /root/.config/kdeglobals" in launcher
+    assert 'big_wm_kdeglobals "$big_wm_kvantum" >/root/.config/kdeglobals' in launcher

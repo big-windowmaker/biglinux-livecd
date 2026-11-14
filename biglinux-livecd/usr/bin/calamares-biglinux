@@ -277,12 +277,16 @@ if [[ -f $calamares_state_directory/start_calamares && ! -L $calamares_state_dir
 	# directory nests the copy inside it instead of replacing it.
 	# Big WindowMaker is the exception: there every Qt window has the
 	# session's QTStep theme, and the installer follows it like the rest.
-	rm -rf -- /root/.config/Kvantum
+	# kdeglobals too: one left by an earlier run (another theme, another
+	# desktop) would otherwise stay when the copy below fails.
+	rm -rf -- /root/.config/Kvantum /root/.config/kdeglobals
 	if big_wm_kvantum=$(big_wm_kvantum_theme); then
-		# Big WindowMaker: the session's QTStep theme (window-maker-look). The
-		# Kvantum theme brings its own palette, so no kdeglobals is needed.
+		# Big WindowMaker: the session's QTStep theme (window-maker-look), and
+		# a kdeglobals with the same colors for the KDE platform theme and the
+		# QtQuick pages, which would otherwise use Breeze's light scheme.
 		mkdir -p /root/.config/Kvantum
 		printf '[General]\ntheme=%s\n' "$big_wm_kvantum" >/root/.config/Kvantum/kvantum.kvconfig
+		big_wm_kdeglobals "$big_wm_kvantum" >/root/.config/kdeglobals || rm -f -- /root/.config/kdeglobals
 	elif [[ -e /usr/share/biglinux/themes/biglinux/.config/kdeglobals ]]; then
 		cp -f /usr/share/biglinux/themes/biglinux/.config/kdeglobals /root/.config/kdeglobals
 		cp -Rf /usr/share/biglinux/themes/biglinux/.config/Kvantum /root/.config/Kvantum

@@ -3,6 +3,7 @@ import io.calamares.ui 1.0
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import "i18n.js" as I18n
 
@@ -70,8 +71,10 @@ Rectangle {
             .replace(/BigLinux/g, Branding.string(Branding.ProductName))
     }
 
-    // Each step shows what it is about. The icons are drawn in white, which
-    // is what the dark panel needs on every state.
+    // Each step shows what it is about. The SVGs are white shapes, tinted
+    // (IconImage, on the CPU, so also with the software renderer) with the
+    // text color of the surface under them: OPENSTEP's selection is white on
+    // the light QTStep theme, where white icons disappeared.
     function stepIcon(stepIndex) {
         const names = [
             "welcome", "location", "keyboard", "partition",
@@ -297,25 +300,29 @@ Rectangle {
                                 // An SVG check instead of a "✓" glyph: the
                                 // glyph comes from whatever fallback font the
                                 // live session picks and sits off-center.
-                                Image {
+                                IconImage {
                                     anchors.centerIn: parent
                                     width: 15
                                     height: 15
                                     visible: stepDelegate.isCompleted
                                     source: "icons/check.svg"
+                                    color: palette.highlightedText
                                     sourceSize.width: width
                                     sourceSize.height: height
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
                                 }
 
-                                Image {
+                                IconImage {
                                     anchors.centerIn: parent
                                     width: 17
                                     height: 17
                                     visible: !stepDelegate.isCompleted
                                     opacity: stepDelegate.isCurrent ? 1.0 : 0.7
                                     source: root.stepIcon(index)
+                                    color: stepDelegate.isCurrent
+                                        ? palette.highlightedText
+                                        : palette.buttonText
                                     sourceSize.width: width
                                     sourceSize.height: height
                                     fillMode: Image.PreserveAspectFit

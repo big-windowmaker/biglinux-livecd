@@ -7,7 +7,10 @@ ColumnLayout {
     property alias title: titleLabel.text
     property alias description: descriptionLabel.text
     property color titleColor: palette.windowText
-    property color descriptionColor: palette.placeholderText
+    // Opaque, 72 % of the title color over the window: placeholderText is the
+    // text at half alpha, under 4.5:1 on the QTStep themes.
+    property color descriptionColor: Qt.tint(palette.window, Qt.rgba(
+        palette.windowText.r, palette.windowText.g, palette.windowText.b, 0.72))
     spacing: 3
 
     SystemPalette { id: palette }

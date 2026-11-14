@@ -112,3 +112,60 @@ def test_configuration_is_valid_yaml() -> None:
     files = sorted(PROFILE.glob("modules/*.conf")) + [PROFILE / "settings.conf"]
     for path in files:
         assert isinstance(yaml.safe_load(path.read_text(encoding="utf-8")), dict), path
+
+
+def _luminance(hex_color: str) -> float:
+    channels = []
+    for i in (1, 3, 5):
+        c = int(hex_color[i : i + 2], 16) / 255
+        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def _ratio(a: str, b: str) -> float:
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+# The window colors of the two QTStep themes the installer follows.
+LIGHT_WINDOW, DARK_WINDOW = "#aaaaaa", "#3c3c3c"
+
+
+def test_installer_icons_take_the_color_of_their_surface() -> None:
+    # The step, avatar and section SVGs are white or mid-tone shapes; on the
+    # light QTStep theme (white selection) they disappeared. IconImage tints
+    # them on the CPU, which also works with QT_QUICK_BACKEND=software.
+    sidebar = (BRANDING / "calamares-sidebar.qml").read_text(encoding="utf-8")
+    assert "import QtQuick.Controls.impl" in sidebar
+    assert sidebar.count("IconImage {") == 2
+    assert "color: palette.highlightedText" in sidebar
+    users = (BRANDING / "usersq.qml").read_text(encoding="utf-8")
+    assert "color: root.palette.highlightedText" in users  # the avatar
+    assert users.count("color: root.accentInk") == 3
+    for page in ("summaryq.qml", "finishedq.qml"):
+        assert "IconImage {" in (BRANDING / page).read_text(encoding="utf-8"), page
+
+
+def test_installer_secondary_text_and_inks_meet_aa() -> None:
+    # palette.placeholderText is the text at half alpha (about 3.5:1 on the
+    # QTStep themes): no label uses it any more.
+    for page in BRANDING.glob("*.qml"):
+        text = page.read_text(encoding="utf-8")
+        assert "color: root.palette.placeholderText" not in text, page.name
+        assert "color: mandatory ? root.palette.windowText : root.palette.placeholderText" not in text
+    header = (BRANDING / "components/PageHeader.qml").read_text(encoding="utf-8")
+    assert "descriptionColor: palette.placeholderText" not in header
+    # Texts: 4.5:1 on their palette; line icons: 3:1.
+    users = (BRANDING / "usersq.qml").read_text(encoding="utf-8")
+    summary = (BRANDING / "summaryq.qml").read_text(encoding="utf-8")
+    finished = (BRANDING / "finishedq.qml").read_text(encoding="utf-8")
+    pairs = re.findall(r'(\w+Ink|accentColor): darkPalette \? "(#[0-9a-f]{6})" : "(#[0-9a-f]{6})"', users)
+    assert {name for name, _, _ in pairs} == {"accentInk", "goodInk", "badInk"}
+    for name, dark, light in pairs:
+        need = 3.0 if name == "accentInk" else 4.5
+        assert _ratio(dark, DARK_WINDOW) >= need, name
+        assert _ratio(light, LIGHT_WINDOW) >= need, name
+    inks = re.findall(r'darkPalette \? "(#[0-9a-f]{6})" : "(#[0-9a-f]{6})"', summary + finished)
+    assert len(inks) >= 6
+    for dark, light in inks:
+        assert _ratio(dark, DARK_WINDOW) >= 3.0 and _ratio(light, LIGHT_WINDOW) >= 3.0, (dark, light)
