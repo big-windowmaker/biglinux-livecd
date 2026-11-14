@@ -134,7 +134,9 @@ instalador:
 
 1. A ISO inicia o **wdm**; na live, o usuário é `bigwindowmaker`, senha
    `big`, e a sessão padrão é *Big WindowMaker Live*, que executa o
-   `startbiglive`.
+   `startbiglive`. Vale a partir da próxima ISO: as publicadas até
+   12/11/2026 entram sozinhas pelo LightDM, com o usuário `community`
+   (senha `big`).
 2. O `startbiglive` identifica o gerenciador de login pelo
    `display-manager.service` (sddm, gdm, lightdm, lxdm ou **wdm**), protege
    contra loop de login, espelha os monitores no X11 e abre o assistente
