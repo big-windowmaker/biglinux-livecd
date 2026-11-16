@@ -151,8 +151,14 @@ stale_mounts=$(findmnt -rn -o TARGET,FSTYPE | awk '
 	($1 ~ /^\/tmp\/tmp[^\/]+\/[^\/]+$/ && $2 == "squashfs") { print $1 }')
 if [[ -n $stale_mounts ]]; then
 	while IFS= read -r stale_mount; do
-		umount -R -- "$stale_mount" 2>/dev/null || umount -R -l -- "$stale_mount" || true
-		rmdir -- "$stale_mount" 2>/dev/null || true
+		# No lazy unmount: it would hide a mount still in use (a shell inside
+		# it) while the disk stays busy, and the next launch could not find
+		# it again. A mount that cannot go away stays visible.
+		if umount -R -- "$stale_mount"; then
+			rmdir -- "$stale_mount" 2>/dev/null || true
+		else
+			printf 'calamares-biglinux: %s is still in use and stays mounted\n' "$stale_mount" >&2
+		fi
 	done <<<"$stale_mounts"
 	btrfs device scan --forget || true
 fi
