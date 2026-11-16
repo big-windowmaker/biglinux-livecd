@@ -141,6 +141,22 @@ if ! flock -n "$calamares_lock_fd"; then
 	exit 1
 fi
 
+# An installer that died midway (its X server crashed with the session,
+# 2026-11-16) left the target disk mounted under /tmp/calamares-root-* and
+# the squashfs images unpackfs was copying under /tmp/tmp*/: installing again
+# on the same disk then failed, the partitions being in use. The lock above
+# guarantees no installer is running now, so these mounts are orphans.
+stale_mounts=$(findmnt -rn -o TARGET,FSTYPE | awk '
+	$1 ~ /^\/tmp\/calamares-root-[^\/]+$/ ||
+	($1 ~ /^\/tmp\/tmp[^\/]+\/[^\/]+$/ && $2 == "squashfs") { print $1 }')
+if [[ -n $stale_mounts ]]; then
+	while IFS= read -r stale_mount; do
+		umount -R -- "$stale_mount" 2>/dev/null || umount -R -l -- "$stale_mount" || true
+		rmdir -- "$stale_mount" 2>/dev/null || true
+	done <<<"$stale_mounts"
+	btrfs device scan --forget || true
+fi
+
 export CALAMARES_BRANDING=$calamares_profile_id
 export CALAMARES_PROFILE_ID=$calamares_profile_id
 export CALAMARES_PROFILE_DIRECTORY=$calamares_config_directory
