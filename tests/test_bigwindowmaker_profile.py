@@ -169,3 +169,11 @@ def test_installer_secondary_text_and_inks_meet_aa() -> None:
     assert len(inks) >= 6
     for dark, light in inks:
         assert _ratio(dark, DARK_WINDOW) >= 3.0 and _ratio(light, LIGHT_WINDOW) >= 3.0, (dark, light)
+
+
+def test_installed_system_enables_big_wm_units() -> None:
+    # enable_systemd do iso-profiles só vale na live; o sistema instalado
+    # recebe só o que o módulo services lista.
+    units = yaml.safe_load((PROFILE / "modules/services.conf").read_text(encoding="utf-8"))["units"]
+    enabled = {u["name"] for u in units if u["action"] == "enable"}
+    assert {"big-wm-intel-gen4", "big-wm-grub-resolucao"} <= enabled
