@@ -177,3 +177,13 @@ def test_installed_system_enables_big_wm_units() -> None:
     units = yaml.safe_load((PROFILE / "modules/services.conf").read_text(encoding="utf-8"))["units"]
     enabled = {u["name"] for u in units if u["action"] == "enable"}
     assert {"big-wm-intel-gen4", "big-wm-grub-resolucao"} <= enabled
+
+
+def test_installed_system_enables_only_units_of_this_edition() -> None:
+    # Unidades de outras edições só geravam erros no log do Calamares
+    # ("Unit sddm.service does not exist", lightdm contra o alias do wdm).
+    units = yaml.safe_load((PROFILE / "modules/services.conf").read_text(encoding="utf-8"))["units"]
+    enabled = [u["name"] for u in units if u["action"] == "enable"]
+    managers = [n for n in enabled if n in {"wdm", "sddm", "gdm", "lightdm"}]
+    assert managers == ["wdm"]
+    assert not {"pkgfile-update.timer", "cups-browsed"} & set(enabled)
