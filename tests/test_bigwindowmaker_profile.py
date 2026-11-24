@@ -187,3 +187,13 @@ def test_installed_system_enables_only_units_of_this_edition() -> None:
     managers = [n for n in enabled if n in {"wdm", "sddm", "gdm", "lightdm"}]
     assert managers == ["wdm"]
     assert not {"pkgfile-update.timer", "cups-browsed"} & set(enabled)
+
+
+def test_installed_system_does_not_enable_dnsmasq() -> None:
+    # Com a configuração padrão o dnsmasq escutava em todas as interfaces e
+    # respondia DNS a qualquer máquina da rede; o sistema resolve pelo
+    # resolv.conf do NetworkManager e não o usa.
+    units = yaml.safe_load((PROFILE / "modules/services.conf").read_text(encoding="utf-8"))["units"]
+    assert "dnsmasq" not in {u["name"] for u in units}
+    enabled = {u["name"] for u in units if u["action"] == "enable"}
+    assert {"ufw", "smb", "nmb"} <= enabled
