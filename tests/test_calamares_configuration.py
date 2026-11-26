@@ -908,3 +908,26 @@ def test_installation_log_is_kept_on_the_installed_system() -> None:
     assert "/var/log/installation.log" in (
         BIGWM_PROFILE / "branding/bigwindowmaker/finishedq.qml"
     ).read_text(encoding="utf-8")
+
+
+def test_bigwindowmaker_populates_the_big_wm_key():
+    # The edition's pacman.conf requires signatures from [big-wm]
+    # (big-windowmaker/repo): without its key the installed system cannot
+    # update. The other profiles have no big-wm-keyring and must not ask
+    # for it (pacman-key --populate fails on a missing keyring).
+    def populate(profile):
+        config = yaml.safe_load(
+            (profile / "modules/shellprocess_initialize_pacman.conf").read_text(encoding="utf-8")
+        )
+        return [
+            item["command"].split()
+            for item in config["script"]
+            if isinstance(item, dict) and "--populate" in item["command"]
+        ]
+
+    assert populate(BIGWM_PROFILE) == [
+        ["pacman-key", "--populate", "archlinux", "manjaro", "biglinux", "big-wm"]
+    ]
+    for other in BIGWM_PROFILE.parent.iterdir():
+        if other != BIGWM_PROFILE and (other / "modules/shellprocess_initialize_pacman.conf").exists():
+            assert all("big-wm" not in command for command in populate(other)), other.name
