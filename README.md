@@ -41,6 +41,7 @@ assistente do Calamares. Este fork acrescenta, sem mexer nas outras edições:
 | **Visual do Window Maker no instalador**: as janelas GTK com o tema da sessão (OneStepBack) e a barra de título do Window Maker (`gtk-nocsd`), o Calamares com o tema QTStep do Kvantum da sessão, claro ou escuro | `usr/lib/biglinux-livecd/window-maker-look`, `calamares-biglinux`, `calamares-biglinux_polkit` |
 | **Sessão live do Window Maker**: o `startbiglive` abre o `startbigwm` (X11) ou o `startbigwm-wayland` e reconhece o **wdm** como gerenciador de login | `usr/bin/startbiglive` |
 | **wdm no sistema instalado**: no perfil `bigwindowmaker`, o módulo `services` habilita o `wdm` e só as unidades que a edição instala (sem sddm, gdm, lightdm, cups-browsed e pkgfile-update.timer, que só geravam avisos); edições sem wdm não mudam | `modules/services.conf` dos perfis, `tests/test_bigwindowmaker_profile.py` |
+| **Chave do repositório `[big-wm]`**: no perfil `bigwindowmaker`, o Calamares popula também a chave do repositório assinado no sistema instalado (`pacman-key --populate ... big-wm`) | `modules/shellprocess_initialize_pacman.conf` do perfil |
 | **Sobre pelo perfil da edição**: o `profile.json` pode trazer um bloco `about`; no `bigwindowmaker`, "Instalador do Big WindowMaker", com os mantenedores, o BigLinux creditado como projeto original e a versão do pacote. BigLinux, BigCommunity e XivaStudio continuam com o Sobre do BigLinux | `profile.json`, `tests/test_about_profile.py` |
 
 ## Capturas
