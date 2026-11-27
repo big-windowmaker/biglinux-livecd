@@ -967,3 +967,18 @@ def test_bigwindowmaker_populates_the_big_wm_key():
     for other in BIGWM_PROFILE.parent.iterdir():
         if other != BIGWM_PROFILE and (other / "modules/shellprocess_initialize_pacman.conf").exists():
             assert all("big-wm" not in command for command in populate(other)), other.name
+
+
+def test_bigwindowmaker_partition_legend_is_readable() -> None:
+    # Calamares paints the size line of the partition legend in a fixed
+    # Qt::gray (#a0a0a4) over the view's window color. QTStep's window and
+    # base are both #aaaaaa, so palette(base) does not help: the background
+    # has to be a fixed light color.
+    stylesheet = (
+        REPOSITORY
+        / "biglinux-livecd/usr/share/biglinux/calamares-profiles/bigwindowmaker"
+        / "branding/bigwindowmaker/stylesheet.qss"
+    ).read_text(encoding="utf-8")
+    rule = re.search(r"^PartitionLabelsView\s*\{([^}]*)\}", stylesheet, re.MULTILINE)
+    assert rule is not None
+    assert re.search(r"background-color:\s*#ffffff\s*;", rule.group(1))

@@ -78,6 +78,17 @@
     background-color: #0E7490;
 }
 
+/* The legend under the partition bars ("Atual:" / "Depois:", and the manual
+ * partitioning page) paints each name in a fixed Qt::black and the size and
+ * file system under it in a fixed Qt::gray (#a0a0a4, Calamares
+ * PartitionLabelsView), over its palette's window color. On the gray OPENSTEP
+ * window (#aaaaaa, and QTStep's base is the same gray) the second line all but
+ * disappeared, and a dark theme would hide the first. A white background,
+ * fixed like the pens, keeps both lines readable in any theme. */
+PartitionLabelsView {
+    background-color: #ffffff;
+}
+
 /* The disk passphrase field belongs to the partition module, so its labels and
  * layout are not ours to change. Its container is a plain QWidget subclass
  * without WA_StyledBackground, which means a background or a border set on the
