@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--only-blue" alt="Licença GPL-3.0-only">
   <a href="https://github.com/biglinux/biglinux-livecd"><img src="https://img.shields.io/badge/upstream-BigLinux-2d85c6" alt="Upstream: BigLinux"></a>
-  <img src="https://img.shields.io/badge/ISO-Alpha-8a2be2" alt="ISO Alpha">
+  <img src="https://img.shields.io/badge/ISO-Beta%201-2d85c6" alt="ISO Beta 1">
 </p>
 
 <p align="center">
