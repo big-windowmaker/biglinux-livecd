@@ -94,7 +94,7 @@ Calamares com o perfil.
 | Etapa | Módulos do `settings.conf` |
 |---|---|
 | Páginas | `welcomeq` → `locale` → `keyboard` → `partition` → `usersq` → `summaryq` |
-| Instalação | `partition`, `luks-pbkdf`, `mount`, `unpackfs`, `networkcfg`, `machineid`, `fstab`, `locale`, `keyboard`, `packages`, `localecfg`, LUKS, `initcpiocfg`, `initcpio`, `usersq`, `displaymanager`, `mhwdcfg`, `hwclock`, `services`, `grubcfg`, `bootloader`, `grubcfg-fix`, `postcfg`, `btrfs-fix`, `umount` |
+| Instalação | `partition`, `luks-pbkdf`, `mount`, `unpackfs`, `networkcfg`, `machineid`, `fstab`, `locale`, `keyboard`, `packages`, `localecfg`, LUKS, `initcpiocfg`, `initcpio`, `usersq`, `displaymanager`, `shellprocess@drivers` (`big-driver-manager-cli gpu install`, no lugar do `mhwdcfg`), `hwclock`, `services`, `grubcfg`, `bootloader`, `grubcfg-fix`, `postcfg`, `btrfs-fix`, `umount` |
 | Fim | `finishedq` |
 
 | Branding (`branding.desc`) | |
