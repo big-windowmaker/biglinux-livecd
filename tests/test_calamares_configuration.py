@@ -482,10 +482,12 @@ def test_launcher_preserves_mhwd_configuration_and_skips_free_driver_job() -> No
     assert "- mhwdcfg[[:space:]]*$" in launcher
 
 
-def test_bigcommunity_installs_drivers_with_big_driver_manager_cli() -> None:
-    profile = (
-        REPOSITORY / "biglinux-livecd/usr/share/biglinux/calamares-profiles/bigcommunity"
-    )
+# Big WindowMaker boots driver=nonfree by default: with mhwdcfg the installer
+# ran a mhwd that the image no longer has (exit 127) and the installed system
+# never got the proprietary drivers (ISO r72).
+@pytest.mark.parametrize("name", ["bigcommunity", "bigwindowmaker"])
+def test_profile_installs_drivers_with_big_driver_manager_cli(name: str) -> None:
+    profile = REPOSITORY / "biglinux-livecd/usr/share/biglinux/calamares-profiles" / name
     settings = yaml.safe_load((profile / "settings.conf").read_text(encoding="utf-8"))
     steps = [step for phase in settings["sequence"] for s in phase.values() for step in s]
 
