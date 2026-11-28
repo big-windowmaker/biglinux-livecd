@@ -982,3 +982,18 @@ def test_bigwindowmaker_partition_legend_is_readable() -> None:
     rule = re.search(r"^PartitionLabelsView\s*\{([^}]*)\}", stylesheet, re.MULTILINE)
     assert rule is not None
     assert re.search(r"background-color:\s*#ffffff\s*;", rule.group(1))
+
+
+def test_bigwindowmaker_installer_keeps_the_live_language() -> None:
+    # The live wizard sets LANG before Calamares starts. A geoip lookup in the
+    # welcome module replaced it by the network's country: English chosen in
+    # Brazil came up as "português (Brasil)". The time zone keeps its own
+    # lookup in locale.conf.
+    welcome = yaml.safe_load(
+        (
+            REPOSITORY
+            / "biglinux-livecd/usr/share/biglinux/calamares-profiles/bigwindowmaker"
+            / "modules/welcomeq.conf"
+        ).read_text(encoding="utf-8")
+    )
+    assert "geoip" not in welcome
